@@ -7,7 +7,7 @@ import java.util.Observable;
  * @author corneliu
  */
 public class WebCamObservable extends Observable{
-    boolean changed = false;;
+    boolean changed = false;
 
     public void change(){
         changed = ! changed;

@@ -1,31 +1,25 @@
 package slr.Ui;
 
-import java.awt.Color;
-import java.awt.Font;
+import com.github.sarxos.webcam.Webcam;
+import slr.control.controlUnit.SlrWindowController;
+import slr.logic.utils.Constants;
+
+import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.ImageIcon;
-import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.filechooser.FileNameExtensionFilter;
-import slr.control.controlUnit.SystemControl;
-import slr.logic.utils.Constants;
 
 /**
  *
  * @author corneliu
  */
 public class SLRWindow extends javax.swing.JFrame {
-    private SystemControl control;
-    private DefaultComboBoxModel webCamComboModel;
-    private DefaultComboBoxModel alphabetModel;
+    private SlrWindowController windowController;
+
+    private DefaultComboBoxModel<Webcam> webCamComboModel;
+    private DefaultComboBoxModel<String> alphabetModel;
 
     public SLRWindow() {
         initComponents();
@@ -33,45 +27,44 @@ public class SLRWindow extends javax.swing.JFrame {
         detectionTypeButtonGroup.add(luminosityDetection);
 
         // init webcam combobox
-        webCamComboModel = new DefaultComboBoxModel();
+        webCamComboModel = new DefaultComboBoxModel<>();
         webCamList.setModel(webCamComboModel);
 
         // init alphabet combobox
-        alphabetModel = new DefaultComboBoxModel();
+        alphabetModel = new DefaultComboBoxModel<>();
         for (char a = 'A'; a <= 'Z'; a++){
-            alphabetModel.addElement(a+"");
+            alphabetModel.addElement(a + "");
         }
         alphabet.setModel(alphabetModel);
 
         // init control
-        control = new SystemControl(this);
-        control.setLuminosity(luminosity.getValue());
-        control.checkWebCams(webCamComboModel);
+        windowController = new SlrWindowController(this);
+        windowController.setLuminosity(luminosity.getValue());
+        windowController.detectAvailableWebCams(webCamComboModel);
 
         skinDetection.setSelected(true);
 
         // init tabed panel
         tabPane.addTab("Test SLR", TestSLR);
-        tabPane.addChangeListener(new ChangeListener() {
-
-            public void stateChanged(ChangeEvent e) {
-                JTabbedPane pane = (JTabbedPane)e.getSource();
-
-                int selectedTab = pane.getSelectedIndex();
-
-                if (selectedTab == 1){
-                    resizeForTab2();
-                }else{
-                    if (extendOptions.getText().equals(">")){
-                        minimize();
-                    }else{
-                        maximize();
-                    }
-                }
-            }
-        });
+        tabPane.addChangeListener(this::tabChangedAction);
 
        minimize();
+    }
+
+    private void tabChangedAction(ChangeEvent e) {
+        JTabbedPane pane = (JTabbedPane)e.getSource();
+
+        int selectedTab = pane.getSelectedIndex();
+
+        if (selectedTab == 1){
+            resizeForTab2();
+        }else{
+            if (extendOptions.getText().equals(">")){
+                minimize();
+            }else{
+                maximize();
+            }
+        }
     }
 
     public void minimize(){
@@ -124,7 +117,7 @@ public class SLRWindow extends javax.swing.JFrame {
     }
 
     public String getFilePath(){
-        JFileChooser saveDialog = new JFileChooser(control.getSaveLocation());
+        JFileChooser saveDialog = new JFileChooser(windowController.getSaveLocation());
         saveDialog.setMultiSelectionEnabled(false);
         saveDialog.setAcceptAllFileFilterUsed(false);
         saveDialog.setFileFilter(new FileNameExtensionFilter("JPEG file", "jpeg", "jpg"));
@@ -138,7 +131,7 @@ public class SLRWindow extends javax.swing.JFrame {
             String directory = saveDialog.getCurrentDirectory().toString();
 
             String fullName = directory + "\\" +fileName + ".jpg";
-            control.setSaveLocation(directory);
+            windowController.setSaveLocation(directory);
 
             return fullName;
         }else if (val == JFileChooser.CANCEL_OPTION){
@@ -620,16 +613,16 @@ public class SLRWindow extends javax.swing.JFrame {
         recognize.setEnabled(true);
         displayFD.setEnabled(true);
         
-        if (control.isWebCamStarted()){
-            if (!control.isWebCamPaused()){
+        if (windowController.isWebCamStarted()){
+            if (!windowController.isWebCamPaused()){
                 play.setText("Play");
             }else{
                 play.setText("Pause");
             }
 
-            control.setWebCamPaused(!control.isWebCamPaused());
+            windowController.setWebCamPaused(!windowController.isWebCamPaused());
         }else{
-            control.startWebCam(webCamList.getSelectedItem().toString());
+            windowController.startWebCam((Webcam) webCamList.getSelectedItem());
 
             play.setText("Pause");
             webCamList.setEnabled(false);
@@ -638,66 +631,66 @@ public class SLRWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_playActionPerformed
 
     private void luminosityStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_luminosityStateChanged
-        control.setLuminosity(luminosity.getValue());
+        windowController.setLuminosity(luminosity.getValue());
     }//GEN-LAST:event_luminosityStateChanged
 
     private void takeSnapshotActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_takeSnapshotActionPerformed
         try {
-            control.takeSnapshot();
+            windowController.takeSnapshot();
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "An error occured while saving. The file was not saved.", "Save error", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_takeSnapshotActionPerformed
 
     private void skinDetectionStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_skinDetectionStateChanged
-        if (control!=null){
-            control.setUseSkinDetection(skinDetection.isSelected());
+        if (windowController !=null){
+            windowController.setUseSkinDetection(skinDetection.isSelected());
             if(skinDetection.isSelected()){
                 threshold.setEnabled(false);
             }else{
                 threshold.setEnabled(true);
-                control.setThreshold((int)(((float)threshold.getValue() / 100)*255));
+                windowController.setThreshold((int)(((float)threshold.getValue() / 100)*255));
             }
         }
     }//GEN-LAST:event_skinDetectionStateChanged
 
     private void thresholdStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_thresholdStateChanged
-        control.setThreshold((int)(((float)threshold.getValue() / 100)*255));
+        windowController.setThreshold((int)(((float)threshold.getValue() / 100)*255));
     }//GEN-LAST:event_thresholdStateChanged
 
     private void displayFDActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_displayFDActionPerformed
-        control.displayFourierDescriptors();
+        windowController.displayFourierDescriptors();
     }//GEN-LAST:event_displayFDActionPerformed
 
     private void smallIluminatedMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_smallIluminatedMouseClicked
-        control.normalView();
+        windowController.normalView();
     }//GEN-LAST:event_smallIluminatedMouseClicked
 
     private void WireView1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_WireView1MouseClicked
-        control.wireFrameView();
+        windowController.wireFrameView();
     }//GEN-LAST:event_WireView1MouseClicked
 
     private void SkinViewMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_SkinViewMouseClicked
-        control.skinView();
+        windowController.skinView();
     }//GEN-LAST:event_SkinViewMouseClicked
 
     private void FDViewMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_FDViewMouseClicked
-        control.fdView();
+        windowController.fdView();
     }//GEN-LAST:event_FDViewMouseClicked
 
     private void recognizeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recognizeActionPerformed
-        if (control.isRecognize()){
+        if (windowController.isRecognize()){
             recognize.setText("Recognize");
         }else{
             recognize.setText("Stop Recognizing");
         }
-        control.setRecognize(!control.isRecognize());
+        windowController.setRecognize(!windowController.isRecognize());
     }//GEN-LAST:event_recognizeActionPerformed
 
     private void stopActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stopActionPerformed
-        if (control.isWebCamStarted()){
+        if (windowController.isWebCamStarted()){
             play.setText("Play");
-            control.stopWebCam();
+            windowController.stopWebCam();
             webCamList.setEnabled(true);
         }
     }//GEN-LAST:event_stopActionPerformed
@@ -725,12 +718,12 @@ public class SLRWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_testImageMouseClicked
 
     private void browseImageActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_browseImageActionPerformed
-        control.loadImage();
+        windowController.loadImage();
         recognizeSingle.setEnabled(true);
     }//GEN-LAST:event_browseImageActionPerformed
 
     private void recognizeSingleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recognizeSingleActionPerformed
-        control.recognize();
+        windowController.recognize();
     }//GEN-LAST:event_recognizeSingleActionPerformed
 
     /**

@@ -229,20 +229,4 @@ public class ImageProcessor {
 
         return all;
     }
-
-    public BufferedImage imgPlusToBufferedImage(ImagePlus imgp){
-         int h = imgp.getHeight();
-         int w = imgp.getWidth();
-
-         ij.process.ImageProcessor imgproc = imgp.getProcessor();
-
-         BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-         for (int i=1; i<w; i++){
-             for (int j=1; j<h; j++){
-                bi.setRGB(i,j, imgproc.getPixel(i, j));
-             }
-         }
-
-         return bi;
-    }
 }

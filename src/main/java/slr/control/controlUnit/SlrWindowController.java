@@ -1,33 +1,8 @@
 package slr.control.controlUnit;
 
 //import com.sun.media.protocol.vfw.VFWDeviceQuery;
-import ij.ImagePlus;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.Point;
-import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
-import java.util.Observable;
-import java.util.Observer;
-import java.util.Vector;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.imageio.ImageIO;
-import javax.media.CaptureDeviceInfo;
-import javax.media.CaptureDeviceManager;
-import javax.media.Format;
-import javax.media.Player;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JFileChooser;
-import javax.swing.filechooser.FileNameExtensionFilter;
+
+import com.github.sarxos.webcam.Webcam;
 import org.apache.commons.math3.complex.Complex;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
@@ -47,11 +22,22 @@ import slr.logic.utils.Constants;
 import slr.logic.utils.MathUtils;
 import slr.logic.webCamControl.WebCamControl;
 
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.*;
+import java.util.Observable;
+import java.util.Observer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  *
  * @author corneliu
  */
-public class SystemControl implements Observer {
+public class SlrWindowController implements Observer {
     private ImageProcessor imageProcessor;
     private WebCamControl webCamControl;
     private NeuralNetwork neuralNetwork;
@@ -73,9 +59,7 @@ public class SystemControl implements Observer {
     private int frameNR = 0;
     private int[] rezultat = new int[24];
 
-    Player player;
-    
-    public SystemControl(SLRWindow window ){
+    public SlrWindowController(SLRWindow window ){
         imageProcessor = new ImageProcessor();
         
         //initNeuralNetwork();
@@ -85,9 +69,9 @@ public class SystemControl implements Observer {
             //saveNeuralNetwork();
             loadNeuralNetwork();
         } catch (ClassNotFoundException ex) {
-            Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
-            Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         this.mainWindow = window;
@@ -95,28 +79,17 @@ public class SystemControl implements Observer {
 
 
 //------------------------------    WEB CAM CONTROL     ------------------------
-    public void checkWebCams(DefaultComboBoxModel model){
-        Vector deviceListVector = CaptureDeviceManager.getDeviceList(new Format("RGB"));
-        Vector<CaptureDeviceInfo> videoDevices = new Vector<CaptureDeviceInfo>();
-
-        for (Object d : deviceListVector){
-//            if (d instanceof VFWDeviceQuery){
-                videoDevices.add((CaptureDeviceInfo)d);
-//            }
-        }
-
-        for (CaptureDeviceInfo dev : videoDevices){
-            model.addElement(dev.getName());
-        }
+    public void detectAvailableWebCams(DefaultComboBoxModel<Webcam> model) {
+        Webcam.getWebcams().stream().forEach(model::addElement);
     }
 
-    public void startWebCam(String selectedDevice){
+    public void startWebCam(Webcam selectedDevice){
         this.webCamStarted = true;
         this.webCamPaused = false;
 
         webCamControl = new WebCamControl(selectedDevice);
         webCamControl.addObserver(this);
-        webCamControl.start();
+        new Thread(webCamControl).start();
     }
 
     public void stopWebCam(){
@@ -124,7 +97,6 @@ public class SystemControl implements Observer {
         this.webCamPaused = true;
 
         webCamControl.stopWebCam();
-        webCamControl.interrupt();
     }
 
     public void takeSnapshot() throws IOException{
@@ -220,9 +192,8 @@ public class SystemControl implements Observer {
     }
 
     public void update(Observable o, Object arg) {
-        if (!webCamPaused){
-                ImagePlus crtFrame = webCamControl.getCrtFrame();
-                BufferedImage buffImg = imageProcessor.imgPlusToBufferedImage(crtFrame);
+        if (!webCamPaused) {
+                BufferedImage buffImg = webCamControl.getCrtFrame();
 
                 BufferedImage iluminatedImage = imageProcessor.iluminate(buffImg, luminosity);
                 BufferedImage preparedImg = prepareImage(iluminatedImage, useSkinDetection, threshold);
@@ -255,11 +226,8 @@ public class SystemControl implements Observer {
                     }
 
                 } catch (NeuralNetworkException ex) {
-                    Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
                 }
-//                catch (MathException ex) {
-//                    Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
-//                }
 
                 BufferedImage smallIluminated = imageProcessor.resizeImage(iluminatedImage, 4);
                 BufferedImage smallWireFrame = generateWireFrame(contour, true);
@@ -386,7 +354,7 @@ public class SystemControl implements Observer {
         try {
             neuralNetwork.train(dataSet, Constants.LEARNING_RATE, Constants.ALPHA);
         } catch (NeuralNetworkException ex) {
-            Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -436,7 +404,7 @@ public class SystemControl implements Observer {
             br.close();
 
         } catch (IOException ex) {
-            Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         return ts;
@@ -461,7 +429,7 @@ public class SystemControl implements Observer {
 
                 mainWindow.renderLoadedImage(loadedImage);
             } catch (IOException ex) {
-                Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -506,7 +474,7 @@ public class SystemControl implements Observer {
             }
 
         } catch (NeuralNetworkException ex) {
-            Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
         }
 //        catch (MathException ex) {
 //            Logger.getLogger(SystemControl.class.getName()).log(Level.SEVERE, null, ex);
