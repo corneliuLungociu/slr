@@ -2,6 +2,7 @@ package slr.services.impl;
 
 import com.jhlabs.image.*;
 import ij.ImagePlus;
+import org.springframework.stereotype.Service;
 import slr.services.ImageProcessingService;
 import slr.services.impl.image.CannyEdgeDetector;
 import slr.services.impl.image.contours.Contour;
@@ -13,9 +14,7 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.util.List;
 
-/**
- * @author corneliu
- */
+@Service
 public class DefaultImageProcessingService implements ImageProcessingService {
 
     @Override

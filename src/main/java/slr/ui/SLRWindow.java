@@ -2,9 +2,13 @@ package slr.ui;
 
 import com.github.sarxos.webcam.Webcam;
 import com.github.sarxos.webcam.WebcamPanel;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.*;
+import org.springframework.stereotype.Component;
 import slr.control.SlrWindowController;
 import slr.utils.Constants;
 
+import javax.annotation.PostConstruct;
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -17,14 +21,18 @@ import java.util.Set;
  *
  * @author corneliu
  */
+@Component
 public class SLRWindow extends javax.swing.JFrame {
+
+    @Autowired
     private SlrWindowController windowController;
 
     private DefaultComboBoxModel<String> webCamComboModel;
     private DefaultComboBoxModel<String> alphabetModel;
     private WebCamState webCamState = WebCamState.STOPPED;
 
-    public SLRWindow() {
+    @PostConstruct
+    public void init() {
         initComponents();
         detectionTypeButtonGroup.add(skinDetection);
         detectionTypeButtonGroup.add(luminosityDetection);
@@ -40,8 +48,14 @@ public class SLRWindow extends javax.swing.JFrame {
         }
         alphabet.setModel(alphabetModel);
 
-        // init control
-        windowController = new SlrWindowController(this);
+        // init tabed panel
+        tabPane.addTab("Test SLR", TestSLR);
+        tabPane.addChangeListener(this::tabChangedAction);
+
+        minimize();
+    }
+
+    public void initController() {
         windowController.setLuminosity(luminosity.getValue());
         Set<String> availableWebCams = windowController.getAvailableWebCams();
         for (String availableWebCam : availableWebCams) {
@@ -49,12 +63,6 @@ public class SLRWindow extends javax.swing.JFrame {
         }
 
         skinDetection.setSelected(true);
-
-        // init tabed panel
-        tabPane.addTab("Test SLR", TestSLR);
-        tabPane.addChangeListener(this::tabChangedAction);
-
-       minimize();
     }
 
     private void tabChangedAction(ChangeEvent e) {

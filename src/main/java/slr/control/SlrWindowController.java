@@ -2,16 +2,17 @@ package slr.control;
 
 import com.github.sarxos.webcam.Webcam;
 import org.apache.commons.math3.complex.Complex;
-import slr.ui.DisplayFDWindow;
-import slr.ui.SLRWindow;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import slr.control.controlUnit.ImageProcessor;
 import slr.control.controlUnit.VideoStreamSampler;
 import slr.services.impl.DefaultImageProcessingService;
+import slr.ui.DisplayFDWindow;
+import slr.ui.SLRWindow;
 import slr.utils.Constants;
 import slr.utils.MathUtils;
-import slr.services.impl.NeuralNetworkPredictionService;
-import slr.services.PredictionService;
 
+import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -28,13 +29,19 @@ import java.util.logging.Logger;
 /**
  * @author corneliu
  */
+@Service
 public class SlrWindowController {
 
+    @Autowired
     private SLRWindow mainWindow;
 
+    @Autowired
     private DefaultImageProcessingService imageProcessingService;
+
+    @Autowired
     private VideoStreamSampler videoStreamSampler;
-    private PredictionService predictionService;
+
+    @Autowired
     private ImageProcessor webcamListener;
 
     private BufferedImage loadedImage;
@@ -44,18 +51,16 @@ public class SlrWindowController {
 
     private Map<String, Webcam> availableWebCams;
 
-    public SlrWindowController(SLRWindow window) {
-        imageProcessingService = new DefaultImageProcessingService();
-        predictionService = new NeuralNetworkPredictionService();
-        webcamListener = new ImageProcessor(imageProcessingService, predictionService, window);
-        videoStreamSampler = new VideoStreamSampler(webcamListener);
-
-        initializeWebCams();
+    @PostConstruct
+    private void init() {
+        availableWebCams = new HashMap<>();
+        for (Webcam webCam : Webcam.getWebcams()) {
+            availableWebCams.put(webCam.getName(), webCam);
+        }
 
         //initNeuralNetwork();
         //trainNeuralNetwork();
         //saveNeuralNetwork();
-        this.mainWindow = window;
     }
 
 
@@ -137,7 +142,6 @@ public class SlrWindowController {
 
         return FD;
     }
-
 
 
     //--------------------------    FOR TESTING FUNCTIONALITY   --------------------
@@ -255,13 +259,6 @@ public class SlrWindowController {
 
     public void resumeWebCam(String webCamName) {
         // TODO: implement this
-    }
-
-    private void initializeWebCams() {
-        availableWebCams = new HashMap<>();
-        for (Webcam webCam : Webcam.getWebcams()) {
-            availableWebCams.put(webCam.getName(), webCam);
-        }
     }
 
     //------------------------------    GETERS AND SETERS   ------------------------

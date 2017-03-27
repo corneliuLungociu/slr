@@ -1,12 +1,17 @@
 package slr.control.controlUnit;
 
 import com.github.sarxos.webcam.Webcam;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.awt.image.BufferedImage;
 
+@Service
 public class VideoStreamSampler {
 
+    @Autowired
     private ImageProcessor imageProcessor;
+
     private Thread crtThread;
 
     public VideoStreamSampler(ImageProcessor imageProcessor) {

@@ -1,5 +1,6 @@
 package slr.services.impl;
 
+import org.springframework.stereotype.Service;
 import slr.logic.neuralNetwork.NeuralNetwork;
 import slr.logic.neuralNetwork.errors.NeuralNetworkException;
 import slr.logic.neuralNetwork.training.TrainingElement;
@@ -8,17 +9,16 @@ import slr.utils.Constants;
 import slr.services.PredictionException;
 import slr.services.PredictionService;
 
+import javax.annotation.PostConstruct;
 import java.io.*;
 
+@Service
 public class NeuralNetworkPredictionService implements PredictionService {
 
     private NeuralNetwork neuralNetwork;
     private TrainingSet dataSet;
 
-    public NeuralNetworkPredictionService() {
-        init();
-    }
-
+    @PostConstruct
     private void init() {
         try {
             loadNeuralNetwork();

@@ -7,6 +7,8 @@ import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import slr.ui.SLRWindow;
 import slr.services.impl.DefaultImageProcessingService;
 import slr.utils.Constants;
@@ -16,10 +18,16 @@ import slr.services.PredictionService;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
+@Service
 public class ImageProcessor {
 
+    @Autowired
     private DefaultImageProcessingService imageProcessingService;
+
+    @Autowired
     private PredictionService predictionService;
+
+    @Autowired
     private SLRWindow mainWindow;
 
     private int crtFrameNr;
@@ -29,13 +37,6 @@ public class ImageProcessor {
     private double luminosity;
     private boolean useSkinDetection;
     private int threshold;
-
-
-    public ImageProcessor(DefaultImageProcessingService imageProcessingService, PredictionService predictionService, SLRWindow mainWindow) {
-        this.imageProcessingService = imageProcessingService;
-        this.predictionService = predictionService;
-        this.mainWindow = mainWindow;
-    }
 
     public void update(BufferedImage crtFrame) {
 
