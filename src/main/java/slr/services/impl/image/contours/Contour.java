@@ -9,7 +9,7 @@
  * Date: 2010/08/01
  */
 
-package slr.logic.imageProcessing.contours;
+package slr.services.impl.image.contours;
 import ij.IJ;
 
 /*

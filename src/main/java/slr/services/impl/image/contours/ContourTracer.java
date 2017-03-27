@@ -9,7 +9,7 @@
  * Date: 2010/08/01
  */
 
-package slr.logic.imageProcessing.contours;
+package slr.services.impl.image.contours;
 
 /*
  * Modified 2010-08-01
@@ -19,7 +19,7 @@ import java.awt.Point;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import slr.logic.imageProcessing.regions.BinaryRegion;
+import slr.services.impl.image.regions.BinaryRegion;
 import ij.process.ImageProcessor;
 
 public class ContourTracer {

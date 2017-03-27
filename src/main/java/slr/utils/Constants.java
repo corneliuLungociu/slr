@@ -1,4 +1,4 @@
-package slr.logic.utils;
+package slr.utils;
 
 /**
  *

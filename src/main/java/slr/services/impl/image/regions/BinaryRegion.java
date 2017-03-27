@@ -9,7 +9,7 @@
  * Date: 2010/08/01
  */
 
-package slr.logic.imageProcessing.regions;
+package slr.services.impl.image.regions;
 
 import java.awt.Rectangle;
 import java.awt.geom.Point2D;

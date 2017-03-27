@@ -1,4 +1,4 @@
-package slr.logic.imageProcessing;
+package slr.services.impl.image;
 
 import java.awt.image.BufferedImage;
 import java.util.Arrays;

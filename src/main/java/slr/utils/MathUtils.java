@@ -1,4 +1,4 @@
-package slr.logic.utils;
+package slr.utils;
 
 import java.awt.Point;
 import org.apache.commons.math3.complex.Complex;

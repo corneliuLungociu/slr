@@ -5,7 +5,7 @@
 
 package slr;
 
-import slr.Ui.SLRWindow;
+import slr.ui.SLRWindow;
 
 /**
  *

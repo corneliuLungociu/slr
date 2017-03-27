@@ -1,8 +1,9 @@
-package slr.Ui;
+package slr.ui;
 
 import com.github.sarxos.webcam.Webcam;
-import slr.control.controlUnit.SlrWindowController;
-import slr.logic.utils.Constants;
+import com.github.sarxos.webcam.WebcamPanel;
+import slr.control.SlrWindowController;
+import slr.utils.Constants;
 
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
@@ -10,6 +11,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Set;
 
 /**
  *
@@ -18,8 +20,9 @@ import java.io.IOException;
 public class SLRWindow extends javax.swing.JFrame {
     private SlrWindowController windowController;
 
-    private DefaultComboBoxModel<Webcam> webCamComboModel;
+    private DefaultComboBoxModel<String> webCamComboModel;
     private DefaultComboBoxModel<String> alphabetModel;
+    private WebCamState webCamState = WebCamState.STOPPED;
 
     public SLRWindow() {
         initComponents();
@@ -40,7 +43,10 @@ public class SLRWindow extends javax.swing.JFrame {
         // init control
         windowController = new SlrWindowController(this);
         windowController.setLuminosity(luminosity.getValue());
-        windowController.detectAvailableWebCams(webCamComboModel);
+        Set<String> availableWebCams = windowController.getAvailableWebCams();
+        for (String availableWebCam : availableWebCams) {
+            webCamComboModel.addElement(availableWebCam);
+        }
 
         skinDetection.setSelected(true);
 
@@ -84,7 +90,7 @@ public class SLRWindow extends javax.swing.JFrame {
     }
 
     public void renderFrame(BufferedImage img){
-        laberWebCam.setIcon(new ImageIcon(img));
+        webCamLable.setIcon(new ImageIcon(img));
     }
 
     public void renderFD(BufferedImage img ){
@@ -175,13 +181,13 @@ public class SLRWindow extends javax.swing.JFrame {
         jLabel2 = new javax.swing.JLabel();
         displayFD = new javax.swing.JButton();
         webCamPanel = new javax.swing.JPanel();
-        play = new javax.swing.JButton();
+        playButton = new javax.swing.JButton();
         stop = new javax.swing.JButton();
         recognize = new javax.swing.JButton();
         takeSnapshot = new javax.swing.JButton();
         outLabel = new javax.swing.JLabel();
         webCamContent = new javax.swing.JPanel();
-        laberWebCam = new javax.swing.JLabel();
+        webCamLable = new javax.swing.JLabel();
         jLabel3 = new javax.swing.JLabel();
         webCamList = new javax.swing.JComboBox();
         extendOptions = new javax.swing.JLabel();
@@ -195,6 +201,9 @@ public class SLRWindow extends javax.swing.JFrame {
         jPanel3 = new javax.swing.JPanel();
         errorGraph = new javax.swing.JLabel();
         recognizeSingle = new javax.swing.JButton();
+
+        webCamWrapperPannel = new JPanel();
+        webCamWrapperPannel.add(webCamLable);
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -326,8 +335,8 @@ public class SLRWindow extends javax.swing.JFrame {
 
         webCamPanel.setBorder(javax.swing.BorderFactory.createTitledBorder(null, "Web Cam", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font("Tahoma", 0, 11), new java.awt.Color(51, 51, 255))); // NOI18N
 
-        play.setText("Play");
-        play.addActionListener(new java.awt.event.ActionListener() {
+        playButton.setText("Play");
+        playButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 playActionPerformed(evt);
             }
@@ -361,17 +370,17 @@ public class SLRWindow extends javax.swing.JFrame {
         webCamContent.setBorder(javax.swing.BorderFactory.createTitledBorder("WebCamContent"));
         webCamContent.setPreferredSize(new java.awt.Dimension(640, 480));
 
-        laberWebCam.setText("                                                                                     WebCam is loading, Please wait...");
+        webCamLable.setText("                        No webcam started.                                ");
 
         javax.swing.GroupLayout webCamContentLayout = new javax.swing.GroupLayout(webCamContent);
         webCamContent.setLayout(webCamContentLayout);
         webCamContentLayout.setHorizontalGroup(
             webCamContentLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(laberWebCam, javax.swing.GroupLayout.DEFAULT_SIZE, 634, Short.MAX_VALUE)
+            .addComponent(webCamWrapperPannel, javax.swing.GroupLayout.DEFAULT_SIZE, 634, Short.MAX_VALUE)
         );
         webCamContentLayout.setVerticalGroup(
             webCamContentLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(laberWebCam, javax.swing.GroupLayout.DEFAULT_SIZE, 469, Short.MAX_VALUE)
+            .addComponent(webCamWrapperPannel, javax.swing.GroupLayout.DEFAULT_SIZE, 469, Short.MAX_VALUE)
         );
 
         jLabel3.setText("Available Web Cameras:");
@@ -406,7 +415,7 @@ public class SLRWindow extends javax.swing.JFrame {
                         .addComponent(webCamList, javax.swing.GroupLayout.PREFERRED_SIZE, 288, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(webCamContent, javax.swing.GroupLayout.PREFERRED_SIZE, 650, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(webCamPanelLayout.createSequentialGroup()
-                        .addComponent(play)
+                        .addComponent(playButton)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(stop)
                         .addGap(145, 145, 145)
@@ -432,7 +441,7 @@ public class SLRWindow extends javax.swing.JFrame {
                 .addGroup(webCamPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(webCamPanelLayout.createSequentialGroup()
                         .addGroup(webCamPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(play)
+                            .addComponent(playButton)
                             .addComponent(stop)
                             .addComponent(recognize)
                             .addComponent(takeSnapshot))
@@ -612,23 +621,38 @@ public class SLRWindow extends javax.swing.JFrame {
         takeSnapshot.setEnabled(true);
         recognize.setEnabled(true);
         displayFD.setEnabled(true);
-        
-        if (windowController.isWebCamStarted()){
-            if (!windowController.isWebCamPaused()){
-                play.setText("Play");
-            }else{
-                play.setText("Pause");
+        String webCamName = (String) webCamList.getSelectedItem();
+
+        switch (webCamState) {
+            case STOPPED: {
+                Webcam webcam = windowController.startWebCam(webCamName);
+                if (webCamPanel != null) {
+                    webCamWrapperPannel.remove(webCamPanel);
+                }
+                webCamPanel = new WebcamPanel(webcam);
+                webCamWrapperPannel.add(webCamPanel);
+                webCamWrapperPannel.remove(webCamLable);
+
+                playButton.setText("Pause");
+                webCamList.setEnabled(false);
+                webCamState = WebCamState.STARTED;
+                break;
             }
-
-            windowController.setWebCamPaused(!windowController.isWebCamPaused());
-        }else{
-            windowController.startWebCam((Webcam) webCamList.getSelectedItem());
-
-            play.setText("Pause");
-            webCamList.setEnabled(false);
+            case STARTED: {
+                playButton.setText("Play");
+                windowController.pauseWebCam(webCamName);
+                webCamState = WebCamState.PAUSED;
+                break;
+            }
+            case PAUSED: {
+                playButton.setText("Pause");
+                windowController.resumeWebCam(webCamName);
+                webCamState = WebCamState.STARTED;
+                break;
+            }
+            default: throw new UnsupportedOperationException("Unknown web cam state: " + webCamState);
         }
-
-    }//GEN-LAST:event_playActionPerformed
+    }
 
     private void luminosityStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_luminosityStateChanged
         windowController.setLuminosity(luminosity.getValue());
@@ -636,7 +660,8 @@ public class SLRWindow extends javax.swing.JFrame {
 
     private void takeSnapshotActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_takeSnapshotActionPerformed
         try {
-            windowController.takeSnapshot();
+            String webCamName = (String) webCamList.getSelectedItem();
+            windowController.takeSnapshot(webCamName);
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "An error occured while saving. The file was not saved.", "Save error", JOptionPane.ERROR_MESSAGE);
         }
@@ -663,19 +688,19 @@ public class SLRWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_displayFDActionPerformed
 
     private void smallIluminatedMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_smallIluminatedMouseClicked
-        windowController.normalView();
+//        windowController.normalView();
     }//GEN-LAST:event_smallIluminatedMouseClicked
 
     private void WireView1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_WireView1MouseClicked
-        windowController.wireFrameView();
+//        windowController.wireFrameView();
     }//GEN-LAST:event_WireView1MouseClicked
 
     private void SkinViewMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_SkinViewMouseClicked
-        windowController.skinView();
+//        windowController.skinView();
     }//GEN-LAST:event_SkinViewMouseClicked
 
     private void FDViewMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_FDViewMouseClicked
-        windowController.fdView();
+//        windowController.fdView();
     }//GEN-LAST:event_FDViewMouseClicked
 
     private void recognizeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recognizeActionPerformed
@@ -684,14 +709,21 @@ public class SLRWindow extends javax.swing.JFrame {
         }else{
             recognize.setText("Stop Recognizing");
         }
-        windowController.setRecognize(!windowController.isRecognize());
+        windowController.computePrediction(!windowController.isRecognize());
     }//GEN-LAST:event_recognizeActionPerformed
 
     private void stopActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stopActionPerformed
-        if (windowController.isWebCamStarted()){
-            play.setText("Play");
-            windowController.stopWebCam();
+        if (webCamState == WebCamState.STARTED || webCamState == WebCamState.PAUSED) {
+            String webCamName = (String) webCamList.getSelectedItem();
+            windowController.stopWebCam(webCamName);
+
+            playButton.setText("Play");
             webCamList.setEnabled(true);
+            webCamWrapperPannel.remove(webCamPanel);
+            webCamWrapperPannel.add(webCamLable);
+            webCamWrapperPannel.repaint();
+
+            webCamState = WebCamState.STOPPED;
         }
     }//GEN-LAST:event_stopActionPerformed
 
@@ -756,12 +788,11 @@ public class SLRWindow extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
-    private javax.swing.JLabel laberWebCam;
     private javax.swing.JSlider luminosity;
     private javax.swing.JRadioButton luminosityDetection;
     private javax.swing.JPanel optionsPanel;
     private javax.swing.JLabel outLabel;
-    private javax.swing.JButton play;
+    private javax.swing.JButton playButton;
     private javax.swing.JButton recognize;
     private javax.swing.JButton recognizeSingle;
     private javax.swing.JRadioButton skinDetection;
@@ -774,6 +805,15 @@ public class SLRWindow extends javax.swing.JFrame {
     private javax.swing.JPanel webCamContent;
     private javax.swing.JComboBox webCamList;
     private javax.swing.JPanel webCamPanel;
+
+    private javax.swing.JLabel webCamLable;
+    private JPanel webCamWrapperPannel;
     // End of variables declaration//GEN-END:variables
 
+
+    private enum WebCamState {
+        STARTED,
+        STOPPED,
+        PAUSED
+    }
 }

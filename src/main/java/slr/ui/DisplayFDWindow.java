@@ -1,4 +1,4 @@
-package slr.Ui;
+package slr.ui;
 
 /**
  *

@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 import slr.logic.neuralNetwork.errors.NeuralNetworkException;
 import slr.logic.neuralNetwork.training.TrainingElement;
 import slr.logic.neuralNetwork.training.TrainingSet;
-import slr.logic.utils.Constants;
+import slr.utils.Constants;
 
 /**
  *
