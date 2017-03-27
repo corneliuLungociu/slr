@@ -4,8 +4,7 @@ import com.github.sarxos.webcam.Webcam;
 import org.apache.commons.math3.complex.Complex;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import slr.control.controlUnit.ImageProcessor;
-import slr.control.controlUnit.VideoStreamSampler;
+import slr.services.ImageProcessingService;
 import slr.services.impl.DefaultImageProcessingService;
 import slr.ui.DisplayFDWindow;
 import slr.ui.SLRWindow;
@@ -36,7 +35,7 @@ public class SlrWindowController {
     private SLRWindow mainWindow;
 
     @Autowired
-    private DefaultImageProcessingService imageProcessingService;
+    private ImageProcessingService imageProcessingService;
 
     @Autowired
     private VideoStreamSampler videoStreamSampler;

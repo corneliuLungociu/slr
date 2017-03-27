@@ -1,4 +1,4 @@
-package slr.control.controlUnit;
+package slr.control;
 
 import com.github.sarxos.webcam.Webcam;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,4 +1,4 @@
-package slr.control.controlUnit;
+package slr.control;
 
 import org.apache.commons.math3.complex.Complex;
 import org.jfree.chart.ChartFactory;
@@ -9,6 +9,7 @@ import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import slr.services.ImageProcessingService;
 import slr.ui.SLRWindow;
 import slr.services.impl.DefaultImageProcessingService;
 import slr.utils.Constants;
@@ -22,7 +23,7 @@ import java.awt.image.BufferedImage;
 public class ImageProcessor {
 
     @Autowired
-    private DefaultImageProcessingService imageProcessingService;
+    private ImageProcessingService imageProcessingService;
 
     @Autowired
     private PredictionService predictionService;
