@@ -5,16 +5,11 @@ import org.apache.commons.math3.complex.Complex;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import slr.services.ImageProcessingService;
-import slr.services.impl.DefaultImageProcessingService;
-import slr.ui.DisplayFDWindow;
-import slr.ui.SLRWindow;
-import slr.utils.Constants;
+import slr.services.PredictionService;
 import slr.utils.MathUtils;
 
 import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
-import javax.swing.*;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -22,8 +17,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * @author corneliu
@@ -32,21 +25,16 @@ import java.util.logging.Logger;
 public class SlrWindowController {
 
     @Autowired
-    private SLRWindow mainWindow;
+    private ImageProcessingService imageProcessingService;
 
     @Autowired
-    private ImageProcessingService imageProcessingService;
+    private PredictionService predictionService;
 
     @Autowired
     private VideoStreamSampler videoStreamSampler;
 
     @Autowired
-    private ImageProcessor webcamListener;
-
-    private BufferedImage loadedImage;
-    private double[] FD;
-
-    private String saveLocation = Constants.DEFAULT_SAVE_LOCATION;
+    private ImageProcessor imageProcessor;
 
     private Map<String, Webcam> availableWebCams;
 
@@ -61,7 +49,6 @@ public class SlrWindowController {
         //trainNeuralNetwork();
         //saveNeuralNetwork();
     }
-
 
     //------------------------------    WEB CAM CONTROL     ------------------------
     public Set<String> getAvailableWebCams() {
@@ -80,167 +67,66 @@ public class SlrWindowController {
         return webcam;
     }
 
-    public void takeSnapshot(String selectedWebCam) throws IOException {
+    public void takeSnapshot(String selectedWebCam, String filePath) throws IOException {
+        if (filePath == null) {
+            return;
+        }
 
         Webcam webcam = availableWebCams.get(selectedWebCam);
         if (webcam == null) {
             throw new IllegalArgumentException("Unknown webcam: " + selectedWebCam);
         }
 
+        if (!webcam.isOpen()) {
+            throw new IllegalStateException(String.format("Webcam [%s] is not started. can't take snapshot", selectedWebCam));
+        }
+
         BufferedImage snapshot = webcam.getImage();
-        String path = mainWindow.getFilePath();
-        if (path != null) {
-            ImageIO.write(snapshot, "jpeg", new File(path));
-        }
+        ImageIO.write(snapshot, "jpeg", new File(filePath));
     }
 
-
-    //----------------------------  IMAGE PROCESSING    ----------------------------
-
-    public double[] normalizeShapeSize(Point[] boundary, int size) {
-        double[] normal = MathUtils.computeCentroidDistance(boundary);
-        normal = MathUtils.normalizeShapeSize(normal, size);
-
-        return normal;
+    public BufferedImage readImage(String filePath) throws IOException {
+        BufferedImage loadedImage = ImageIO.read(new File(filePath));
+        int scale = loadedImage.getWidth() / 320;
+        loadedImage = imageProcessingService.scale(loadedImage, scale);
+        return loadedImage;
     }
 
-    public double[] normalizeShapeSize(Point[][] boundary) {
-        Point[] allPoints = new Point[boundary[0].length + boundary[1].length];
-        for (int i = 0; i < boundary[0].length; i++) {
-            allPoints[i] = boundary[0][i];
+    public double[] recognizeSingleImage(BufferedImage loadedImage, boolean useSkinDetection, int luminosityThreshold) {
+
+        BufferedImage preparedImage = imageProcessingService.preProcessImage(loadedImage, useSkinDetection, luminosityThreshold);
+        Point[] contour = imageProcessingService.getContourOfLargestShape(preparedImage);
+        contour = imageProcessingService.reduceDataSize(contour);
+        double[] shapeDescription = MathUtils.computeCentroidDistance(contour);
+
+        if (shapeDescription.length != 32) {
+            return null;
         }
 
-        for (int i = 0; i < boundary[1].length; i++) {
-            allPoints[boundary[0].length + i] = boundary[1][i];
-        }
-
-        double[] normal = MathUtils.computeCentroidDistance(allPoints);
-        normal = MathUtils.normalizeShapeSize(normal, Constants.LARGE_SHAPE_SIZE);
-
-        return normal;
-    }
-
-    public Point[] normalizeAsPoints(Point[][] boundary) {
-        Point[] allPoints = new Point[boundary[0].length + boundary[1].length];
-        for (int i = 0; i < boundary[0].length; i++) {
-            allPoints[i] = boundary[0][i];
-        }
-
-        for (int i = 0; i < boundary[1].length; i++) {
-            allPoints[boundary[0].length + i] = boundary[1][i];
-        }
-        return MathUtils.normalizeShapeSize(allPoints, Constants.LARGE_SHAPE_SIZE);
-    }
-
-    public double[] computeFourierDescriptors(BufferedImage preparedImage) {
-        Point[] contur = imageProcessingService.getContour(preparedImage);
-        double[] shapeDescription = normalizeShapeSize(contur, Constants.LARGE_SHAPE_SIZE);
         Complex[] FT = MathUtils.computeFourierTransforms(shapeDescription);
         FT = MathUtils.normalizeFourierTransforms(FT);
         double[] FD = MathUtils.computeFourierDescriptors(FT);
+        double[] prediction = predictionService.predict(FD);
 
-        return FD;
+        drawContourOnImage(loadedImage, contour);
+        return prediction;
     }
 
-
-    //--------------------------    FOR TESTING FUNCTIONALITY   --------------------
-    public void loadImage() {
-        JFileChooser c = new JFileChooser(saveLocation);
-        c.setMultiSelectionEnabled(false);
-        c.setAcceptAllFileFilterUsed(false);
-        c.setFileFilter(new FileNameExtensionFilter("JPEG file", "jpeg", "jpg"));
-        c.setApproveButtonToolTipText("Load Image");
-        c.setDialogTitle("Load Image");
-
-        int option = c.showOpenDialog(null);
-        if (option == JFileChooser.APPROVE_OPTION) {
-            try {
-                String fileName = c.getSelectedFile().getAbsolutePath();
-                loadedImage = ImageIO.read(new File(fileName));
-                int scale = loadedImage.getWidth() / 320;
-                loadedImage = imageProcessingService.resizeImage(loadedImage, scale);
-
-                mainWindow.renderLoadedImage(loadedImage);
-            } catch (IOException ex) {
-                Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
+    private void drawContourOnImage(BufferedImage loadedImage, Point[] contour) {
+        Graphics2D imageWithContour = loadedImage.createGraphics();
+        if (contour != null && contour.length > 2) {
+            for (int i = 0; i < contour.length - 1; i++) {
+                imageWithContour.drawLine(contour[i].x * 2, contour[i].y * 2, contour[i + 1].x * 2, contour[i + 1].y * 2);
+                imageWithContour.setColor(Color.red);
+                imageWithContour.fillOval(contour[i].x * 2, contour[i].y * 2, 4, 4);
+                imageWithContour.setColor(Color.white);
             }
+
+            imageWithContour.drawLine(contour[0].x * 2, contour[0].y * 2, contour[contour.length - 1].x * 2, contour[contour.length - 1].y * 2);
+            imageWithContour.setColor(Color.red);
+            imageWithContour.fillOval(contour[contour.length - 1].x * 2, contour[contour.length - 1].y * 2, 4, 4);
         }
     }
-
-    public void recognize() {
-//
-//        double[] expected = new double[24];
-//        expected[Constants.ALPHABET.indexOf(mainWindow.getSelectedLeter())] = 1;
-//
-//        BufferedImage preparedImage = prepareImage(loadedImage, useSkinDetection, threshold);
-//
-//        Point[] contour = imageProcessor.getContour(preparedImage);
-//        contour = normalizeAsPoints(contour);
-//
-//        Graphics2D g = loadedImage.createGraphics();
-//        if (contour != null && contour.length > 2) {
-//            for (int i = 0; i < contour.length - 1; i++) {
-//                g.drawLine(contour[i].x * 2, contour[i].y * 2, contour[i + 1].x * 2, contour[i + 1].y * 2);
-//                g.setColor(Color.red);
-//                g.fillOval(contour[i].x * 2, contour[i].y * 2, 4, 4);
-//                g.setColor(Color.white);
-//            }
-//
-//            g.drawLine(contour[0].x * 2, contour[0].y * 2, contour[contour.length - 1].x * 2, contour[contour.length - 1].y * 2);
-//            g.setColor(Color.red);
-//            g.fillOval(contour[contour.length - 1].x * 2, contour[contour.length - 1].y * 2, 4, 4);
-//        }
-//
-//
-//        double[] shapeDescription = MathUtils.computeCentroidDistance(contour);
-//        try {
-//            if (shapeDescription.length == 32) {
-//                Complex[] FT = MathUtils.computeFourierTransforms(shapeDescription);
-//                FT = MathUtils.normalizeFourierTransforms(FT);
-//                FD = MathUtils.computeFourierDescriptors(FT);
-//
-//                double[] prediction = predictionService.predict(FD);
-//
-//
-//                BufferedImage error = generateErrorGraphic(expected, prediction);
-//                mainWindow.renderErrorImage(error);
-//            }
-//
-//        } catch (Exception ex) {
-//            Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-//
-//        mainWindow.renderLoadedImage(loadedImage);
-//
-    }
-
-//    private BufferedImage generateErrorGraphic(double[] expected, double[] output) {
-//        int w = 460;
-//        int h = 280;
-//
-//        XYSeries expectedSeries = new XYSeries("Expected");
-//        XYSeries outputSeries = new XYSeries("Actual Output");
-//
-//        for (int i = 0; i < expected.length; i++) {
-//            expectedSeries.add(i, expected[i]);
-//            outputSeries.add(i, output[i]);
-//        }
-//        XYDataset expectedData = new XYSeriesCollection(expectedSeries);
-//        XYDataset outputData = new XYSeriesCollection(outputSeries);
-//
-//        JFreeChart chart = ChartFactory.createXYLineChart("Error Graphic", "Output", "FD", expectedData, PlotOrientation.VERTICAL, true, false, false);
-//        chart.getXYPlot().setDataset(1, outputData);
-//
-//        //chart.getXYPlot().setRenderer(0, new DeviationRenderer(true, true));
-//        //chart.getXYPlot().setRenderer(1, new DeviationRenderer(true, true));
-//
-//        chart.getXYPlot().setRenderer(0, new XYLineAndShapeRenderer(true, true));
-//        chart.getXYPlot().setRenderer(1, new XYLineAndShapeRenderer(true, true));
-//
-//        BufferedImage fdChart = chart.createBufferedImage(w, h);
-//
-//        return fdChart;
-//    }
 
     public void stopWebCam(String webCamName) {
         Webcam webcam = availableWebCams.get(webCamName);
@@ -260,9 +146,8 @@ public class SlrWindowController {
         // TODO: implement this
     }
 
-    //------------------------------    GETERS AND SETERS   ------------------------
     public void setLuminosity(double luminosity) {
-        webcamListener.setLuminosity((luminosity - 50) / 100);
+        imageProcessor.setLuminosity((luminosity - 50) / 100);
     }
 
 //    public void wireFrameView() {
@@ -281,31 +166,23 @@ public class SlrWindowController {
 //        this.viewType = Constants.FD_VIEW;
 //    }
 
-    public String getSaveLocation() {
-        return saveLocation;
-    }
-
-    public void setSaveLocation(String saveLocation) {
-        this.saveLocation = saveLocation;
-    }
-
     public void setThreshold(int threshold) {
-        webcamListener.setThreshold(threshold);
+        imageProcessor.setThreshold(threshold);
     }
 
     public void setUseSkinDetection(boolean useSkinDetection) {
-        webcamListener.setUseSkinDetection(useSkinDetection);
+        imageProcessor.setUseSkinDetection(useSkinDetection);
     }
 
-    public void displayFourierDescriptors() {
-        new DisplayFDWindow(FD).setVisible(true);
-    }
+//    public void displayFourierDescriptors() {
+//        new DisplayFDWindow(FD).setVisible(true);
+//    }
 
     public boolean isRecognize() {
-        return webcamListener.computesPrediction();
+        return imageProcessor.computesPrediction();
     }
 
     public void computePrediction(boolean recognize) {
-        webcamListener.setComputePrediction(recognize);
+        imageProcessor.setComputePrediction(recognize);
     }
 }

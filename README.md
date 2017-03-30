@@ -2,12 +2,17 @@
 Sign Language Recognition app
 
 TODO:
-- refactor and clean the entire code base.
-- use external java library for ANN.
 
 - improve training examples collection feature.
+- create separate tool to generate training data file from raw images.
+- implement "train model" workflow
+    - separate application to train and run experiments with various configurations.
+    - Maybe extract a distinct "prediction" maven module, and make the main app, and the training app depend on it;
+
+- use external java library for ANN.
+
+- generate more training examples and build a larger training set
 - commit training set
-- generate more training examples
 
 - review image processing algorithms
 - make a better analysis of the learning performance
@@ -15,11 +20,9 @@ TODO:
 - logging
 - unit tests
 - improve exception handling
-- revert the dependency: mainWindow.getFilePath();
 
 - reimplement pause/resume feature? or just drop the feature?
 - reimplement on click on small image -> enlarge it  (on click, change the ImageTransformer associated to the web cam
-- !!!!!!!!!!!!!!!!!!!reimplement Single Image recognition!!!!!!!!!!!!!!!!!!!
 - move neural network package location?
 
 - investigate why on stop camera, sometimes we get a NPE. (most likely a thread synchronization issue)

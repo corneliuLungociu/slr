@@ -2,8 +2,14 @@ package slr.ui;
 
 import com.github.sarxos.webcam.Webcam;
 import com.github.sarxos.webcam.WebcamPanel;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
+import org.jfree.data.xy.XYDataset;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.*;
 import org.springframework.stereotype.Component;
 import slr.control.SlrWindowController;
 import slr.utils.Constants;
@@ -16,6 +22,8 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -30,6 +38,9 @@ public class SLRWindow extends javax.swing.JFrame {
     private DefaultComboBoxModel<String> webCamComboModel;
     private DefaultComboBoxModel<String> alphabetModel;
     private WebCamState webCamState = WebCamState.STOPPED;
+
+    private BufferedImage loadedImage;
+    private String imageFileLocation = Constants.DEFAULT_SAVE_LOCATION;
 
     @PostConstruct
     public void init() {
@@ -81,24 +92,16 @@ public class SLRWindow extends javax.swing.JFrame {
         }
     }
 
-    public void minimize(){
+    private void minimize(){
         setSize(720, getSize().height);
     }
 
-    public void maximize(){
+    private void maximize(){
         setSize(1080, getSize().height);
     }
 
-    public void resizeForTab2(){
+    private void resizeForTab2(){
         setSize(530, getSize().height);
-    }
-
-    public JPanel getWebCamContent(){
-        return webCamContent;
-    }
-
-    public void renderFrame(BufferedImage img){
-        webCamLable.setIcon(new ImageIcon(img));
     }
 
     public void renderFD(BufferedImage img ){
@@ -117,40 +120,35 @@ public class SLRWindow extends javax.swing.JFrame {
         smallIluminated.setIcon(new ImageIcon(img));
     }
 
-    public void renderLoadedImage(BufferedImage img){
+    private void renderLoadedImage(BufferedImage img){
         testImage.setIcon(new ImageIcon(img));
     }
 
-    public void renderErrorImage(BufferedImage img){
+    private void renderErrorImage(BufferedImage img){
         errorGraph.setIcon(new ImageIcon(img));
-
     }
 
-    public String getSelectedLeter(){
+    private String getSelectedLetter(){
         return alphabet.getSelectedItem().toString();
     }
 
-    public String getFilePath(){
-        JFileChooser saveDialog = new JFileChooser(windowController.getSaveLocation());
+    private String getSaveFilePath(){
+        JFileChooser saveDialog = new JFileChooser(imageFileLocation);
         saveDialog.setMultiSelectionEnabled(false);
         saveDialog.setAcceptAllFileFilterUsed(false);
         saveDialog.setFileFilter(new FileNameExtensionFilter("JPEG file", "jpeg", "jpg"));
-        saveDialog.setApproveButtonToolTipText("Save stanpshot");
+        saveDialog.setApproveButtonToolTipText("Save snapshot");
         saveDialog.setDialogTitle("Save Snapshot");
 
         int val = saveDialog.showSaveDialog(this);
 
         if (val == JFileChooser.APPROVE_OPTION){
             String fileName = saveDialog.getSelectedFile().getName();
-            String directory = saveDialog.getCurrentDirectory().toString();
+            imageFileLocation = saveDialog.getCurrentDirectory().toString();
 
-            String fullName = directory + "\\" +fileName + ".jpg";
-            windowController.setSaveLocation(directory);
-
-            return fullName;
-        }else if (val == JFileChooser.CANCEL_OPTION){
-            return null;
+            return imageFileLocation + "\\" +fileName + ".jpg";
         }
+
         return null;
     }
 
@@ -208,7 +206,7 @@ public class SLRWindow extends javax.swing.JFrame {
         alphabet = new javax.swing.JComboBox();
         jPanel3 = new javax.swing.JPanel();
         errorGraph = new javax.swing.JLabel();
-        recognizeSingle = new javax.swing.JButton();
+        recognizeSingleImage = new javax.swing.JButton();
 
         webCamWrapperPannel = new JPanel();
         webCamWrapperPannel.add(webCamLable);
@@ -564,9 +562,9 @@ public class SLRWindow extends javax.swing.JFrame {
             .addComponent(errorGraph, javax.swing.GroupLayout.DEFAULT_SIZE, 278, Short.MAX_VALUE)
         );
 
-        recognizeSingle.setText("Recognize");
-        recognizeSingle.setEnabled(false);
-        recognizeSingle.addActionListener(new java.awt.event.ActionListener() {
+        recognizeSingleImage.setText("Recognize");
+        recognizeSingleImage.setEnabled(false);
+        recognizeSingleImage.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 recognizeSingleActionPerformed(evt);
             }
@@ -580,7 +578,7 @@ public class SLRWindow extends javax.swing.JFrame {
                 .addGroup(TestSLRLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(TestSLRLayout.createSequentialGroup()
                         .addGap(212, 212, 212)
-                        .addComponent(recognizeSingle))
+                        .addComponent(recognizeSingleImage))
                     .addGroup(TestSLRLayout.createSequentialGroup()
                         .addContainerGap()
                         .addGroup(TestSLRLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
@@ -594,7 +592,7 @@ public class SLRWindow extends javax.swing.JFrame {
                 .addContainerGap()
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, 308, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(recognizeSingle)
+                .addComponent(recognizeSingleImage)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -669,21 +667,19 @@ public class SLRWindow extends javax.swing.JFrame {
     private void takeSnapshotActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_takeSnapshotActionPerformed
         try {
             String webCamName = (String) webCamList.getSelectedItem();
-            windowController.takeSnapshot(webCamName);
+            windowController.takeSnapshot(webCamName, getSaveFilePath());
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "An error occured while saving. The file was not saved.", "Save error", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_takeSnapshotActionPerformed
 
     private void skinDetectionStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_skinDetectionStateChanged
-        if (windowController !=null){
-            windowController.setUseSkinDetection(skinDetection.isSelected());
-            if(skinDetection.isSelected()){
-                threshold.setEnabled(false);
-            }else{
-                threshold.setEnabled(true);
-                windowController.setThreshold((int)(((float)threshold.getValue() / 100)*255));
-            }
+        windowController.setUseSkinDetection(skinDetection.isSelected());
+        if (skinDetection.isSelected()) {
+            threshold.setEnabled(false);
+        } else {
+            threshold.setEnabled(true);
+            windowController.setThreshold((int) (((float) threshold.getValue() / 100) * 255));
         }
     }//GEN-LAST:event_skinDetectionStateChanged
 
@@ -692,7 +688,7 @@ public class SLRWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_thresholdStateChanged
 
     private void displayFDActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_displayFDActionPerformed
-        windowController.displayFourierDescriptors();
+//        windowController.displayFourierDescriptors();
     }//GEN-LAST:event_displayFDActionPerformed
 
     private void smallIluminatedMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_smallIluminatedMouseClicked
@@ -758,23 +754,68 @@ public class SLRWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_testImageMouseClicked
 
     private void browseImageActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_browseImageActionPerformed
-        windowController.loadImage();
-        recognizeSingle.setEnabled(true);
-    }//GEN-LAST:event_browseImageActionPerformed
+        JFileChooser loadFileDialog = new JFileChooser(imageFileLocation);
+        loadFileDialog.setMultiSelectionEnabled(false);
+        loadFileDialog.setAcceptAllFileFilterUsed(false);
+        loadFileDialog.setFileFilter(new FileNameExtensionFilter("JPEG file", "jpeg", "jpg"));
+        loadFileDialog.setApproveButtonToolTipText("Load Image");
+        loadFileDialog.setDialogTitle("Load Image");
 
-    private void recognizeSingleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recognizeSingleActionPerformed
-        windowController.recognize();
-    }//GEN-LAST:event_recognizeSingleActionPerformed
+        int option = loadFileDialog.showOpenDialog(null);
+        if (option != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
 
-    /**
-    * @param args the command line arguments
-    */
-    public static void main(String args[]) {
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new SLRWindow().setVisible(true);
-            }
-        });
+        try {
+            String fileName = loadFileDialog.getSelectedFile().getAbsolutePath();
+            imageFileLocation = loadFileDialog.getCurrentDirectory().toString();
+            loadedImage = windowController.readImage(fileName);
+            renderLoadedImage(loadedImage);
+        } catch (IOException ex) {
+            Logger.getLogger(SlrWindowController.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        recognizeSingleImage.setEnabled(true);
+    }
+
+    private void recognizeSingleActionPerformed(java.awt.event.ActionEvent evt) {
+        double[] prediction = windowController.recognizeSingleImage(loadedImage, skinDetection.isSelected(), threshold.getValue());
+
+        if (prediction == null) {
+            return;
+        }
+
+        double[] expected = new double[24];
+        expected[Constants.ALPHABET.indexOf(getSelectedLetter())] = 1;
+        BufferedImage errorImage = generateErrorGraphic(expected, prediction);
+        renderErrorImage(errorImage);
+        renderLoadedImage(loadedImage);
+    }
+
+    private BufferedImage generateErrorGraphic(double[] expected, double[] output) {
+        int w = 460;
+        int h = 280;
+
+        XYSeries expectedSeries = new XYSeries("Expected");
+        XYSeries outputSeries = new XYSeries("Actual Output");
+
+        for (int i = 0; i < expected.length; i++) {
+            expectedSeries.add(i, expected[i]);
+            outputSeries.add(i, output[i]);
+        }
+        XYDataset expectedData = new XYSeriesCollection(expectedSeries);
+        XYDataset outputData = new XYSeriesCollection(outputSeries);
+
+        JFreeChart chart = ChartFactory.createXYLineChart("Error Graphic", "Output", "FD", expectedData, PlotOrientation.VERTICAL, true, false, false);
+        chart.getXYPlot().setDataset(1, outputData);
+
+        //chart.getXYPlot().setRenderer(0, new DeviationRenderer(true, true));
+        //chart.getXYPlot().setRenderer(1, new DeviationRenderer(true, true));
+
+        chart.getXYPlot().setRenderer(0, new XYLineAndShapeRenderer(true, true));
+        chart.getXYPlot().setRenderer(1, new XYLineAndShapeRenderer(true, true));
+
+        return chart.createBufferedImage(w, h);
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -802,7 +843,7 @@ public class SLRWindow extends javax.swing.JFrame {
     private javax.swing.JLabel outLabel;
     private javax.swing.JButton playButton;
     private javax.swing.JButton recognize;
-    private javax.swing.JButton recognizeSingle;
+    private javax.swing.JButton recognizeSingleImage;
     private javax.swing.JRadioButton skinDetection;
     private javax.swing.JLabel smallIluminated;
     private javax.swing.JButton stop;
@@ -817,7 +858,6 @@ public class SLRWindow extends javax.swing.JFrame {
     private javax.swing.JLabel webCamLable;
     private JPanel webCamWrapperPannel;
     // End of variables declaration//GEN-END:variables
-
 
     private enum WebCamState {
         STARTED,

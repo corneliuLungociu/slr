@@ -19,7 +19,7 @@ public class Constants {
     public static int errWrongImput = -1;
 
     public static final double LEARNING_RATE = 0.3;
-    public static final double ALPHA = 0.1;
+    public static final double MOMENTUM_AMOUNT = 0.1;
     public static final double NETWORK_MAX_ERROR = 0.2;
     public static final String DEFAULT_SAVE_LOCATION = "./";
 

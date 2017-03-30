@@ -5,23 +5,27 @@ import java.awt.image.BufferedImage;
 
 public interface ImageProcessingService {
 
-    BufferedImage convertToGrayScale(BufferedImage image);
-
-    BufferedImage removeNoise(BufferedImage image);
+    BufferedImage preProcessImage(BufferedImage img, boolean useSkinDetection, int luminosityThreshold);
 
     BufferedImage convertToBinaryUsingSkin(BufferedImage image);
 
-    BufferedImage convertToBinaryUsingThreshold(BufferedImage image, int thresshold);
+    BufferedImage toBinaryImageUsingLuminosityThreshold(BufferedImage image, int luminosityThreshold);
 
-    BufferedImage iluminate(BufferedImage image, double amount);
+    BufferedImage illuminate(BufferedImage image, double amount);
 
+    BufferedImage scale(BufferedImage img, int scale);
+
+    Point[] getContourOfLargestShape(BufferedImage img);
+
+    Point[] reduceDataSize(Point[] boundary);
+
+    // TODO: make some tests with these
     BufferedImage detectEdgesCanny(BufferedImage image);
 
-    BufferedImage detectEdges(BufferedImage image);
+    BufferedImage detectEdgesEdgeFilter(BufferedImage image);
 
-    BufferedImage resizeImage(BufferedImage img, int scale);
-
-    Point[] getContour(BufferedImage img);
-
+    // TODO: use this to collect more features?
     Point[][] getContourForTwoShapes(BufferedImage img);
+
+    BufferedImage convertToGrayScale(BufferedImage image);
 }

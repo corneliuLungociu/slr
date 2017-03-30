@@ -12,8 +12,8 @@ import org.apache.commons.math3.transform.TransformType;
  */
 public class MathUtils {
 
-    public static Point computeCentroid(Point[] boundary){
-        Point c = new Point();
+    private static Point computeCentroid(Point[] boundary){
+        Point centroid = new Point();
         double x = 0;
         double y = 0;
         for (Point p:boundary){
@@ -23,9 +23,9 @@ public class MathUtils {
         x = x/boundary.length;
         y = y/boundary.length;
 
-        c.setLocation(x, y);
+        centroid.setLocation(x, y);
 
-        return c;
+        return centroid;
     }
 
     public static double[] computeCentroidDistance(Point[] boundary){
@@ -37,27 +37,6 @@ public class MathUtils {
         }
         
         return dist;
-    }
-
-    public static double[] computeCentroidDistance(Point[] boundary, Point centroid){
-        double[] dist = new double[boundary.length];
-
-        for (int i=0; i<boundary.length; i++){
-            dist[i] = boundary[i].distance(centroid);
-        }
-
-        return dist;
-    }
-
-    public static double[] normalizeShapeSize(double[] boundary, int size){
-        double[] normal = new double[size];
-        int step = boundary.length / size;
-
-        for (int i=0; i<size; i++){
-            normal[i] = boundary[i*step];
-        }
-
-        return normal;
     }
 
     public static Point[] normalizeShapeSize(Point[] boundary, int size){
@@ -81,9 +60,9 @@ public class MathUtils {
         return normal;
     }
 
-    public static Complex[] computeFourierTransforms(double[] contur) {
+    public static Complex[] computeFourierTransforms(double[] contour) {
         FastFourierTransformer fft = new FastFourierTransformer(DftNormalization.STANDARD);
-        return fft.transform(contur, TransformType.FORWARD);
+        return fft.transform(contour, TransformType.FORWARD);
     }
 
     public static Complex[] normalizeFourierTransforms(Complex[] fd) {
@@ -96,9 +75,6 @@ public class MathUtils {
     }
 
     /**
-     *
-     * @param fourierTransforms
-     * @return
      * use the polar reprezentation of the complex numbers and return the magnitude
      * (ignore the phase)
      */

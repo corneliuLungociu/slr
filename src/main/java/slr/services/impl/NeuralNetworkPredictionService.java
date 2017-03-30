@@ -1,31 +1,32 @@
 package slr.services.impl;
 
-import org.springframework.stereotype.Service;
 import slr.logic.neuralNetwork.NeuralNetwork;
 import slr.logic.neuralNetwork.errors.NeuralNetworkException;
 import slr.logic.neuralNetwork.training.TrainingElement;
 import slr.logic.neuralNetwork.training.TrainingSet;
-import slr.utils.Constants;
 import slr.services.PredictionException;
 import slr.services.PredictionService;
+import slr.utils.Constants;
 
-import javax.annotation.PostConstruct;
 import java.io.*;
 
-@Service
 public class NeuralNetworkPredictionService implements PredictionService {
 
     private NeuralNetwork neuralNetwork;
-    private TrainingSet dataSet;
 
-    @PostConstruct
-    private void init() {
+    @Override
+    public void initForPrediction(String modelPath) {
         try {
-            loadNeuralNetwork();
+            loadNeuralNetwork(modelPath);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
 
+    @Override
+    public void initForTraining() {
+        neuralNetwork = new NeuralNetwork(15, 24);
+        neuralNetwork.addHiddenLayer(20);
     }
 
     @Override
@@ -37,57 +38,28 @@ public class NeuralNetworkPredictionService implements PredictionService {
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-    private void initNeuralNetwork() {
-        initForSLR();
-        //initForIrisDataset();
-        //initForOR();
-        //initForXOR();
-    }
-
-    public void trainNeuralNetwork() {
+    @Override
+    public void trainModel(String trainingSetPath) {
         try {
-            neuralNetwork.train(dataSet, Constants.LEARNING_RATE, Constants.ALPHA);
+            TrainingSet dataSet = constructDataSet(trainingSetPath);
+            neuralNetwork.train(dataSet, Constants.LEARNING_RATE, Constants.MOMENTUM_AMOUNT);
         } catch (NeuralNetworkException ex) {
             ex.printStackTrace();
         }
     }
 
-    public void saveNeuralNetwork() throws IOException {
+    @Override
+    public void saveModel() throws IOException {
         ObjectOutput out = new ObjectOutputStream(new FileOutputStream("neuralNetwork.txt"));
         out.writeObject(neuralNetwork);
         out.close();
     }
 
-    private void loadNeuralNetwork() throws IOException, ClassNotFoundException {
-        ObjectInputStream in = new ObjectInputStream(this.getClass().getResourceAsStream("/neuralNetwork.txt"));
-        neuralNetwork = (NeuralNetwork) in.readObject();
-        in.close();
-    }
-
-    private void initForSLR() {
-        neuralNetwork = new NeuralNetwork(15, 24);
-        neuralNetwork.addHiddenLayer(20);
-        dataSet = getDataSetForSLR();
-    }
-
-    private TrainingSet getDataSetForSLR() {
+    private TrainingSet constructDataSet(String trainingSetPath) {
         TrainingSet ts = new TrainingSet();
 
         try {
-            BufferedReader br = new BufferedReader(new FileReader("signLanguageTrainingSet/trainingSet.txt"));
+            BufferedReader br = new BufferedReader(new FileReader(trainingSetPath));
             String linie = br.readLine();
             while (linie != null) {
                 String[] values = linie.split(",");
@@ -113,6 +85,12 @@ public class NeuralNetworkPredictionService implements PredictionService {
         }
 
         return ts;
+    }
+
+    private void loadNeuralNetwork(String modelPath) throws IOException, ClassNotFoundException {
+        ObjectInputStream in = new ObjectInputStream(this.getClass().getResourceAsStream(modelPath));
+        neuralNetwork = (NeuralNetwork) in.readObject();
+        in.close();
     }
 
 }

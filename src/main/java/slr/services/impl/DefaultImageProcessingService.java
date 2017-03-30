@@ -8,6 +8,7 @@ import slr.services.impl.image.CannyEdgeDetector;
 import slr.services.impl.image.contours.Contour;
 import slr.services.impl.image.contours.ContourTracer;
 import slr.utils.Constants;
+import slr.utils.MathUtils;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -18,6 +19,32 @@ import java.util.List;
 public class DefaultImageProcessingService implements ImageProcessingService {
 
     @Override
+    public BufferedImage preProcessImage(BufferedImage img, boolean useSkinDetection, int luminosityThreshold) {
+        BufferedImage preparedImage = new BufferedImage(img.getWidth(), img.getHeight(), 1);
+        for (int i = 0; i < img.getWidth(); i++) {
+            for (int j = 0; j < img.getHeight(); j++) {
+                preparedImage.setRGB(i, j, img.getRGB(i, j));
+            }
+        }
+
+        int scale = img.getWidth() / 160;
+        preparedImage = scale(preparedImage, scale);
+        //preparedImage = imageProcessor.iluminate(preparedImage, luminosity);
+
+        if (useSkinDetection) {
+            preparedImage = convertToBinaryUsingSkin(preparedImage);
+        } else {
+            preparedImage = toBinaryImageUsingLuminosityThreshold(preparedImage, luminosityThreshold);
+        }
+
+        preparedImage = removeNoise(preparedImage);
+        //preparedImage = imageProcessor.detectEdges(preparedImage);
+
+        return preparedImage;
+    }
+
+
+    @Override
     public BufferedImage convertToGrayScale(BufferedImage image) {
         GrayscaleFilter grayFilter = new GrayscaleFilter();
 
@@ -25,11 +52,9 @@ public class DefaultImageProcessingService implements ImageProcessingService {
         return grayImage;
     }
 
-    @Override
-    public BufferedImage removeNoise(BufferedImage image) {
+    private BufferedImage removeNoise(BufferedImage image) {
         ReduceNoiseFilter reduceNoiseFilter = new ReduceNoiseFilter();
-        BufferedImage noNoise = reduceNoiseFilter.filter(image, null);
-        return noNoise;
+        return reduceNoiseFilter.filter(image, null);
     }
 
     @Override
@@ -67,13 +92,13 @@ public class DefaultImageProcessingService implements ImageProcessingService {
     }
 
     @Override
-    public BufferedImage convertToBinaryUsingThreshold(BufferedImage image, int thresshold) {
-        ThresholdFilter thresholdFilter = new ThresholdFilter(thresshold);
+    public BufferedImage toBinaryImageUsingLuminosityThreshold(BufferedImage image, int luminosityThreshold) {
+        ThresholdFilter thresholdFilter = new ThresholdFilter(luminosityThreshold);
         return thresholdFilter.filter(image, null);
     }
 
     @Override
-    public BufferedImage iluminate(BufferedImage image, double amount) {
+    public BufferedImage illuminate(BufferedImage image, double amount) {
         BufferedImage newImage = new BufferedImage(image.getWidth(), image.getHeight(), 1);
 
         for (int i = 0; i < image.getWidth(); i++) {
@@ -150,20 +175,18 @@ public class DefaultImageProcessingService implements ImageProcessingService {
         //apply it to an image
         detector.setSourceImage(image);
         detector.process();
-        BufferedImage edges = detector.getEdgesImage();
 
-        return edges;
+        return detector.getEdgesImage();
     }
 
     @Override
-    public BufferedImage detectEdges(BufferedImage image) {
-        // TO DO
+    public BufferedImage detectEdgesEdgeFilter(BufferedImage image) {
         EdgeFilter edgeFilter = new EdgeFilter();
         return edgeFilter.filter(image, null);
     }
 
     @Override
-    public BufferedImage resizeImage(BufferedImage img, int scale) {
+    public BufferedImage scale(BufferedImage img, int scale) {
         ScaleFilter scaleFilter = new ScaleFilter(img.getWidth() / scale, img.getHeight() / scale);
         BufferedImage scaledImage = new BufferedImage(img.getWidth() / scale, img.getHeight() / scale, img.getType());
         scaleFilter.filter(img, scaledImage);
@@ -172,12 +195,12 @@ public class DefaultImageProcessingService implements ImageProcessingService {
     }
 
     @Override
-    public Point[] getContour(BufferedImage img) {
+    public Point[] getContourOfLargestShape(BufferedImage img) {
         ImagePlus imgp = new ImagePlus("", img);
         ContourTracer contourTracer = new ContourTracer(imgp.getProcessor());
         List<Contour> contours = contourTracer.getOuterContours();
 
-        Contour longestContour = null;
+        Contour longestContour;
         if (!contours.isEmpty()) {
             longestContour = contours.get(0);
             for (int i = 1; i < contours.size(); i++) {
@@ -187,7 +210,7 @@ public class DefaultImageProcessingService implements ImageProcessingService {
             }
 
             List<Point> points = longestContour.getPoints();
-            return points.toArray(new Point[0]);
+            return points.toArray(new Point[points.size()]);
         }
 
         return new Point[0];
@@ -225,5 +248,10 @@ public class DefaultImageProcessingService implements ImageProcessingService {
         }
 
         return all;
+    }
+
+    @Override
+    public Point[] reduceDataSize(Point[] boundary) {
+        return MathUtils.normalizeShapeSize(boundary, Constants.LARGE_SHAPE_SIZE);
     }
 }

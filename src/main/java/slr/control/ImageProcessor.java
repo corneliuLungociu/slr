@@ -10,11 +10,10 @@ import org.jfree.data.xy.XYSeriesCollection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import slr.services.ImageProcessingService;
+import slr.services.PredictionService;
 import slr.ui.SLRWindow;
-import slr.services.impl.DefaultImageProcessingService;
 import slr.utils.Constants;
 import slr.utils.MathUtils;
-import slr.services.PredictionService;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -41,12 +40,12 @@ public class ImageProcessor {
 
     public void update(BufferedImage crtFrame) {
 
-            BufferedImage iluminatedImage = imageProcessingService.iluminate(crtFrame, luminosity);
-            BufferedImage preparedImg = preProcessImage(iluminatedImage, useSkinDetection, threshold);
+            BufferedImage iluminatedImage = imageProcessingService.illuminate(crtFrame, luminosity);
 
-            Point[] contour = imageProcessingService.getContour(preparedImg);
-            contour = normalizeAsPoints(contour);
 
+            BufferedImage preparedImg = imageProcessingService.preProcessImage(iluminatedImage, useSkinDetection, threshold);
+            Point[] contour = imageProcessingService.getContourOfLargestShape(preparedImg);
+            contour = imageProcessingService.reduceDataSize(contour);
             double[] shapeDescription = MathUtils.computeCentroidDistance(contour);
 
             if (shapeDescription.length != 32) {
@@ -63,7 +62,7 @@ public class ImageProcessor {
 
                 if (crtFrameNr < Constants.FRAMES_TO_RECOGNIZE) {
                     crtFrameNr++;
-                    int pozMax = max(crtPrediction);
+                    int pozMax = getIndexOfMaxElement(crtPrediction);
                     overallPrediction[pozMax]++;
                 } else {
                     mainWindow.setOutput(overallPrediction);
@@ -73,10 +72,10 @@ public class ImageProcessor {
             }
 
 
-            BufferedImage smallIluminated = imageProcessingService.resizeImage(iluminatedImage, 4);
-            BufferedImage smallWireFrame = generateWireFrame(contour, true);
-            BufferedImage smallSkin = generateSkin(true, iluminatedImage);
-            BufferedImage smallFD = generateFD(true, FD);
+            BufferedImage smallIluminated = imageProcessingService.scale(iluminatedImage, 4);
+            BufferedImage smallWireFrame = generateWireFrameImage(contour, true);
+            BufferedImage smallSkin = generateSkinImage(true, iluminatedImage);
+            BufferedImage smallFD = generateFdPlot(true, FD);
 
 //            switch (viewType) {
 //                case Constants.NORMAL_VIEW: {
@@ -105,17 +104,17 @@ public class ImageProcessor {
             mainWindow.renderSmallIluminated(smallIluminated);
     }
 
-    private int max(double[] output) {
-        int m = 0;
+    private int getIndexOfMaxElement(double[] output) {
+        int maxIndex = 0;
         for (int i = 1; i < output.length; i++) {
-            if (output[i] > output[m]) {
-                m = i;
+            if (output[i] > output[maxIndex]) {
+                maxIndex = i;
             }
         }
-        return m;
+        return maxIndex;
     }
 
-    private BufferedImage generateWireFrame(Point[] contour, boolean small) {
+    private BufferedImage generateWireFrameImage(Point[] contour, boolean small) {
 
         int scale = 1;
         int w = 160;
@@ -144,22 +143,22 @@ public class ImageProcessor {
         return wireFrame;
     }
 
-    private BufferedImage generateSkin(boolean small, BufferedImage originalImage) {
+    private BufferedImage generateSkinImage(boolean small, BufferedImage originalImage) {
         BufferedImage skin;
         if (useSkinDetection) {
             skin = imageProcessingService.convertToBinaryUsingSkin(originalImage);
         } else {
-            skin = imageProcessingService.convertToBinaryUsingThreshold(originalImage, threshold);
+            skin = imageProcessingService.toBinaryImageUsingLuminosityThreshold(originalImage, threshold);
         }
 
         if (small) {
-            skin = imageProcessingService.resizeImage(skin, 4);
+            skin = imageProcessingService.scale(skin, 4);
         }
 
         return skin;
     }
 
-    private BufferedImage generateFD(boolean small, double[] fd) {
+    private BufferedImage generateFdPlot(boolean small, double[] fd) {
         int w = 160;
         int h = 120;
         if (!small) {
@@ -176,41 +175,11 @@ public class ImageProcessor {
 
             XYDataset xyDataSet = new XYSeriesCollection(serie2D);
             JFreeChart chart = ChartFactory.createXYLineChart("", "", "", xyDataSet, PlotOrientation.VERTICAL, false, false, false);
-            BufferedImage fdChart = chart.createBufferedImage(w, h);
 
-            return fdChart;
+            return chart.createBufferedImage(w, h);
         }
 
         return new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
-    }
-
-    private BufferedImage preProcessImage(BufferedImage img, boolean useSkinDetection, int threshold) {
-        BufferedImage preparedImage = new BufferedImage(img.getWidth(), img.getHeight(), 1);
-        for (int i = 0; i < img.getWidth(); i++) {
-            for (int j = 0; j < img.getHeight(); j++) {
-                preparedImage.setRGB(i, j, img.getRGB(i, j));
-            }
-        }
-
-
-        int scale = img.getWidth() / 160;
-        preparedImage = imageProcessingService.resizeImage(preparedImage, scale);
-        //preparedImage = imageProcessor.iluminate(preparedImage, luminosity);
-
-        if (useSkinDetection) {
-            preparedImage = imageProcessingService.convertToBinaryUsingSkin(preparedImage);
-        } else {
-            preparedImage = imageProcessingService.convertToBinaryUsingThreshold(preparedImage, threshold);
-        }
-
-        preparedImage = imageProcessingService.removeNoise(preparedImage);
-        //preparedImage = imageProcessor.detectEdges(preparedImage);
-
-        return preparedImage;
-    }
-
-    private Point[] normalizeAsPoints(Point[] boundary) {
-        return MathUtils.normalizeShapeSize(boundary, Constants.LARGE_SHAPE_SIZE);
     }
 
     public void setComputePrediction(boolean computePrediction) {
