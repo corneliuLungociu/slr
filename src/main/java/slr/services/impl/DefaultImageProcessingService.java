@@ -2,6 +2,7 @@ package slr.services.impl;
 
 import com.jhlabs.image.*;
 import ij.ImagePlus;
+import org.apache.commons.math3.complex.Complex;
 import org.springframework.stereotype.Service;
 import slr.services.ImageProcessingService;
 import slr.services.impl.image.CannyEdgeDetector;
@@ -19,20 +20,36 @@ import java.util.List;
 public class DefaultImageProcessingService implements ImageProcessingService {
 
     @Override
-    public BufferedImage preProcessImage(BufferedImage img, boolean useSkinDetection, int luminosityThreshold) {
-        BufferedImage preparedImage = new BufferedImage(img.getWidth(), img.getHeight(), 1);
-        for (int i = 0; i < img.getWidth(); i++) {
-            for (int j = 0; j < img.getHeight(); j++) {
-                preparedImage.setRGB(i, j, img.getRGB(i, j));
-            }
+    public double[] extractFeatures(boolean useSkinDetection, int luminosityThreshold, BufferedImage image, double luminosity) {
+        BufferedImage preparedImage = preProcessImage(image, useSkinDetection, luminosityThreshold, luminosity);
+        Point[] contour = getContourOfLargestShape(preparedImage);
+        contour = reduceDataSize(contour);
+        double[] shapeDescription = MathUtils.computeCentroidDistance(contour);
+
+        if (shapeDescription.length != 32) {
+            return null;
         }
 
+        Complex[] FT = MathUtils.computeFourierTransforms(shapeDescription);
+        FT = MathUtils.normalizeFourierTransforms(FT);
+        return MathUtils.computeFourierDescriptors(FT);
+    }
+
+    @Override
+    public Point[] extractContour(BufferedImage image, boolean useSkinDetection, int luminosityThreshold, double luminosity) {
+        BufferedImage preparedImg = preProcessImage(image, useSkinDetection, luminosityThreshold, luminosity);
+        Point[] contourOfLargestShape = getContourOfLargestShape(preparedImg);
+        return reduceDataSize(contourOfLargestShape);
+    }
+
+
+    private BufferedImage preProcessImage(BufferedImage img, boolean useSkinDetection, int luminosityThreshold, double luminosity) {
         int scale = img.getWidth() / 160;
-        preparedImage = scale(preparedImage, scale);
-        //preparedImage = imageProcessor.iluminate(preparedImage, luminosity);
+        BufferedImage preparedImage = scale(img, scale);
+        preparedImage = illuminate(preparedImage, luminosity);
 
         if (useSkinDetection) {
-            preparedImage = convertToBinaryUsingSkin(preparedImage);
+            preparedImage = toBinaryUsingSkin(preparedImage);
         } else {
             preparedImage = toBinaryImageUsingLuminosityThreshold(preparedImage, luminosityThreshold);
         }
@@ -48,8 +65,7 @@ public class DefaultImageProcessingService implements ImageProcessingService {
     public BufferedImage convertToGrayScale(BufferedImage image) {
         GrayscaleFilter grayFilter = new GrayscaleFilter();
 
-        BufferedImage grayImage = grayFilter.filter(image, null);
-        return grayImage;
+        return grayFilter.filter(image, null);
     }
 
     private BufferedImage removeNoise(BufferedImage image) {
@@ -58,7 +74,7 @@ public class DefaultImageProcessingService implements ImageProcessingService {
     }
 
     @Override
-    public BufferedImage convertToBinaryUsingSkin(BufferedImage image) {
+    public BufferedImage toBinaryUsingSkin(BufferedImage image) {
 
         BufferedImage newImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_BYTE_BINARY);
 
@@ -67,18 +83,19 @@ public class DefaultImageProcessingService implements ImageProcessingService {
 
                 ColorModel cm = image.getColorModel();
 
-                int r = cm.getRed(image.getRGB(i, j));
-                int g = cm.getGreen(image.getRGB(i, j));
-                int b = cm.getBlue(image.getRGB(i, j));
+                int rgb = image.getRGB(i, j);
+                int r = cm.getRed(rgb);
+                int g = cm.getGreen(rgb);
+                int b = cm.getBlue(rgb);
 
                 if (isSkinRGB_L(r, g, b) && isSkinRGB_G(r, g, b)) {
-                    newImage.setRGB(i, j, image.getRGB(i, j));
+                    newImage.setRGB(i, j, rgb);
 
                     for (int k = i - 2; k < i + 2; k++) {
                         for (int l = j - 2; l < j + 2; l++) {
                             if (k > 0 && k < image.getWidth()
                                     && l > 0 && l < image.getHeight()) {
-                                newImage.setRGB(k, l, image.getRGB(i, j));
+                                newImage.setRGB(k, l, rgb);
                             }
                         }
                     }
@@ -107,7 +124,6 @@ public class DefaultImageProcessingService implements ImageProcessingService {
                 int r = c.getRed();
                 int g = c.getGreen();
                 int b = c.getBlue();
-                int m = (r + g + b) / 3;
 
                 int value = (int) (amount * Constants.LUMINOSITY);
                 r += value;
@@ -124,7 +140,6 @@ public class DefaultImageProcessingService implements ImageProcessingService {
 
                 c = new Color(r, g, b);
                 newImage.setRGB(i, j, c.getRGB());
-
             }
         }
         return newImage;
@@ -188,14 +203,13 @@ public class DefaultImageProcessingService implements ImageProcessingService {
     @Override
     public BufferedImage scale(BufferedImage img, int scale) {
         ScaleFilter scaleFilter = new ScaleFilter(img.getWidth() / scale, img.getHeight() / scale);
-        BufferedImage scaledImage = new BufferedImage(img.getWidth() / scale, img.getHeight() / scale, img.getType());
-        scaleFilter.filter(img, scaledImage);
+        BufferedImage scaledImage = new BufferedImage(img.getWidth() / scale, img.getHeight() / scale, 1);
+        return scaleFilter.filter(img, scaledImage);
 
-        return scaledImage;
+//        return scaledImage;
     }
 
-    @Override
-    public Point[] getContourOfLargestShape(BufferedImage img) {
+    private Point[] getContourOfLargestShape(BufferedImage img) {
         ImagePlus imgp = new ImagePlus("", img);
         ContourTracer contourTracer = new ContourTracer(imgp.getProcessor());
         List<Contour> contours = contourTracer.getOuterContours();
@@ -250,8 +264,7 @@ public class DefaultImageProcessingService implements ImageProcessingService {
         return all;
     }
 
-    @Override
-    public Point[] reduceDataSize(Point[] boundary) {
+    private Point[] reduceDataSize(Point[] boundary) {
         return MathUtils.normalizeShapeSize(boundary, Constants.LARGE_SHAPE_SIZE);
     }
 }

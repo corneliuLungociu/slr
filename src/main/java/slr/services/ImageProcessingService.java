@@ -5,19 +5,17 @@ import java.awt.image.BufferedImage;
 
 public interface ImageProcessingService {
 
-    BufferedImage preProcessImage(BufferedImage img, boolean useSkinDetection, int luminosityThreshold);
+    double[] extractFeatures(boolean useSkinDetection, int luminosityThreshold, BufferedImage image, double luminosity);
 
-    BufferedImage convertToBinaryUsingSkin(BufferedImage image);
+    Point[] extractContour(BufferedImage image, boolean useSkinDetection, int luminosityThreshold, double luminosity);
+
+    BufferedImage toBinaryUsingSkin(BufferedImage image);
 
     BufferedImage toBinaryImageUsingLuminosityThreshold(BufferedImage image, int luminosityThreshold);
 
     BufferedImage illuminate(BufferedImage image, double amount);
 
     BufferedImage scale(BufferedImage img, int scale);
-
-    Point[] getContourOfLargestShape(BufferedImage img);
-
-    Point[] reduceDataSize(Point[] boundary);
 
     // TODO: make some tests with these
     BufferedImage detectEdgesCanny(BufferedImage image);

@@ -11,16 +11,22 @@ import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import slr.control.SlrWindowController;
 import slr.utils.Constants;
 
 import javax.annotation.PostConstruct;
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,10 +43,13 @@ public class SLRWindow extends javax.swing.JFrame {
 
     private DefaultComboBoxModel<String> webCamComboModel;
     private DefaultComboBoxModel<String> alphabetModel;
+    private DefaultComboBoxModel<String> alphabeForTeModel;
+
     private WebCamState webCamState = WebCamState.STOPPED;
 
     private BufferedImage loadedImage;
     private String imageFileLocation = Constants.DEFAULT_SAVE_LOCATION;
+    private long trainingExamplesCnt;
 
     @PostConstruct
     public void init() {
@@ -54,16 +63,53 @@ public class SLRWindow extends javax.swing.JFrame {
 
         // init alphabet combobox
         alphabetModel = new DefaultComboBoxModel<>();
+        alphabeForTeModel = new DefaultComboBoxModel<>();
         for (char a = 'A'; a <= 'Z'; a++){
             alphabetModel.addElement(a + "");
+            alphabeForTeModel.addElement(a + "");
         }
         alphabet.setModel(alphabetModel);
+        alphabetForTeGeneration.setModel(alphabeForTeModel);
 
-        // init tabed panel
+        trainingSetLocation.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                findNumberOfTrainingExamples();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                findNumberOfTrainingExamples();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                findNumberOfTrainingExamples();
+            }
+        });
+
+        alphabetForTeGeneration.addActionListener(e -> findNumberOfTrainingExamples());
+        alphabetForTeGeneration.setSelectedIndex(0);
+
+        // init tabbed panel
         tabPane.addTab("Test SLR", TestSLR);
         tabPane.addChangeListener(this::tabChangedAction);
 
         minimize();
+    }
+
+    private void findNumberOfTrainingExamples() {
+        if (StringUtils.isEmpty(trainingSetLocation.getText())) {
+            return;
+        }
+        String location = trainingSetLocation.getText();
+        String letter = (String) alphabetForTeGeneration.getSelectedItem();
+        Path tePath = Paths.get(location);
+        try {
+            trainingExamplesCnt = Files.find(tePath, 1, (path, basicFileAttributes) -> path.getFileName().toString().startsWith(letter) && path.getFileName().toString().endsWith("jpg")).count();
+        } catch (IOException exception) {
+            exception.printStackTrace();
+        }
     }
 
     public void initController() {
@@ -185,7 +231,7 @@ public class SLRWindow extends javax.swing.JFrame {
         luminosityDetection = new javax.swing.JRadioButton();
         threshold = new javax.swing.JSlider();
         jLabel2 = new javax.swing.JLabel();
-        displayFD = new javax.swing.JButton();
+        generateTrainingExample = new javax.swing.JButton();
         webCamPanel = new javax.swing.JPanel();
         playButton = new javax.swing.JButton();
         stop = new javax.swing.JButton();
@@ -204,9 +250,18 @@ public class SLRWindow extends javax.swing.JFrame {
         testImage = new javax.swing.JLabel();
         jLabel5 = new javax.swing.JLabel();
         alphabet = new javax.swing.JComboBox();
+        alphabetForTeGeneration = new JComboBox();
         jPanel3 = new javax.swing.JPanel();
         errorGraph = new javax.swing.JLabel();
         recognizeSingleImage = new javax.swing.JButton();
+
+        trainingSetLocation = new JTextField();
+        trainingSetLocation.setSize(new Dimension(300, 50));
+        trainingSetLocation.setMaximumSize(new Dimension(300, 50));
+        trainingSetLocation.setPreferredSize(new Dimension(300, 50));
+        alphabetForTeGeneration.setSize(new Dimension(50, 50));
+        alphabetForTeGeneration.setMaximumSize(new Dimension(50, 50));
+        alphabetForTeGeneration.setPreferredSize(new Dimension(50, 50));
 
         webCamWrapperPannel = new JPanel();
         webCamWrapperPannel.add(webCamLable);
@@ -273,11 +328,11 @@ public class SLRWindow extends javax.swing.JFrame {
 
         jLabel2.setText("Threshold");
 
-        displayFD.setText("Display FD");
-        displayFD.setEnabled(false);
-        displayFD.addActionListener(new java.awt.event.ActionListener() {
+        generateTrainingExample.setText("Collect Training Example");
+        generateTrainingExample.setEnabled(false);
+        generateTrainingExample.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                displayFDActionPerformed(evt);
+                collectTrainingExample(evt);
             }
         });
 
@@ -306,7 +361,9 @@ public class SLRWindow extends javax.swing.JFrame {
             .addGroup(optionsPanelLayout.createSequentialGroup()
                 .addGap(14, 14, 14)
                 .addGroup(optionsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(displayFD)
+                .addComponent(trainingSetLocation)
+                .addComponent(alphabetForTeGeneration)
+                    .addComponent(generateTrainingExample)
                     .addGroup(optionsPanelLayout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -323,7 +380,9 @@ public class SLRWindow extends javax.swing.JFrame {
                     .addComponent(WireView1, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(FDView, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(displayFD)
+                .addComponent(trainingSetLocation)
+                .addComponent(alphabetForTeGeneration)
+                .addComponent(generateTrainingExample)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 180, Short.MAX_VALUE)
                 .addGroup(optionsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(jLabel1)
@@ -626,7 +685,7 @@ public class SLRWindow extends javax.swing.JFrame {
     private void playActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_playActionPerformed
         takeSnapshot.setEnabled(true);
         recognize.setEnabled(true);
-        displayFD.setEnabled(true);
+        generateTrainingExample.setEnabled(true);
         String webCamName = (String) webCamList.getSelectedItem();
 
         switch (webCamState) {
@@ -687,8 +746,19 @@ public class SLRWindow extends javax.swing.JFrame {
         windowController.setThreshold((int)(((float)threshold.getValue() / 100)*255));
     }//GEN-LAST:event_thresholdStateChanged
 
-    private void displayFDActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_displayFDActionPerformed
-//        windowController.displayFourierDescriptors();
+    private void collectTrainingExample(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_displayFDActionPerformed
+        try {
+            windowController.collectTrainingExample(
+                    (String)webCamList.getSelectedItem(),
+                    (String)alphabetForTeGeneration.getSelectedItem(),
+                    trainingSetLocation.getText(),
+                    (int) trainingExamplesCnt++,
+                    skinDetection.isSelected(),
+                    threshold.getValue(), luminosity.getValue());
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }//GEN-LAST:event_displayFDActionPerformed
 
     private void smallIluminatedMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_smallIluminatedMouseClicked
@@ -779,7 +849,7 @@ public class SLRWindow extends javax.swing.JFrame {
     }
 
     private void recognizeSingleActionPerformed(java.awt.event.ActionEvent evt) {
-        double[] prediction = windowController.recognizeSingleImage(loadedImage, skinDetection.isSelected(), threshold.getValue());
+        double[] prediction = windowController.recognizeSingleImage(loadedImage, skinDetection.isSelected(), threshold.getValue(), luminosity.getValue());
 
         if (prediction == null) {
             return;
@@ -827,7 +897,7 @@ public class SLRWindow extends javax.swing.JFrame {
     private javax.swing.JComboBox alphabet;
     private javax.swing.JButton browseImage;
     private javax.swing.ButtonGroup detectionTypeButtonGroup;
-    private javax.swing.JButton displayFD;
+    private javax.swing.JButton generateTrainingExample;
     private javax.swing.JLabel errorGraph;
     private javax.swing.JLabel extendOptions;
     private javax.swing.JLabel jLabel1;
@@ -857,6 +927,9 @@ public class SLRWindow extends javax.swing.JFrame {
 
     private javax.swing.JLabel webCamLable;
     private JPanel webCamWrapperPannel;
+
+    private javax.swing.JComboBox alphabetForTeGeneration;
+    private JTextField trainingSetLocation;
     // End of variables declaration//GEN-END:variables
 
     private enum WebCamState {

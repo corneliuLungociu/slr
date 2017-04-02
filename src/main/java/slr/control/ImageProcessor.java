@@ -1,6 +1,5 @@
 package slr.control;
 
-import org.apache.commons.math3.complex.Complex;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.plot.PlotOrientation;
@@ -13,7 +12,6 @@ import slr.services.ImageProcessingService;
 import slr.services.PredictionService;
 import slr.ui.SLRWindow;
 import slr.utils.Constants;
-import slr.utils.MathUtils;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -40,42 +38,34 @@ public class ImageProcessor {
 
     public void update(BufferedImage crtFrame) {
 
-            BufferedImage iluminatedImage = imageProcessingService.illuminate(crtFrame, luminosity);
+        double[] FD = imageProcessingService.extractFeatures(useSkinDetection, threshold, crtFrame, luminosity);
+        if (FD == null) {
+            System.out.println("SKIP CURRENT FRAME");
+            return;
+        }
 
+        if (computePrediction) {
+            double[] crtPrediction = predictionService.predict(FD);
 
-            BufferedImage preparedImg = imageProcessingService.preProcessImage(iluminatedImage, useSkinDetection, threshold);
-            Point[] contour = imageProcessingService.getContourOfLargestShape(preparedImg);
-            contour = imageProcessingService.reduceDataSize(contour);
-            double[] shapeDescription = MathUtils.computeCentroidDistance(contour);
-
-            if (shapeDescription.length != 32) {
-                System.out.println("SKIP CURRENT FRAME");
-                return;
+            if (crtFrameNr < Constants.FRAMES_TO_RECOGNIZE) {
+                crtFrameNr++;
+                int pozMax = getIndexOfMaxElement(crtPrediction);
+                overallPrediction[pozMax]++;
+            } else {
+                mainWindow.setOutput(overallPrediction);
+                crtFrameNr = 0;
+                overallPrediction = new int[24];
             }
+        }
 
-            Complex[] FT = MathUtils.computeFourierTransforms(shapeDescription);
-            FT = MathUtils.normalizeFourierTransforms(FT);
-            double[] FD = MathUtils.computeFourierDescriptors(FT);
-
-            if (computePrediction) {
-                double[] crtPrediction = predictionService.predict(FD);
-
-                if (crtFrameNr < Constants.FRAMES_TO_RECOGNIZE) {
-                    crtFrameNr++;
-                    int pozMax = getIndexOfMaxElement(crtPrediction);
-                    overallPrediction[pozMax]++;
-                } else {
-                    mainWindow.setOutput(overallPrediction);
-                    crtFrameNr = 0;
-                    overallPrediction = new int[24];
-                }
-            }
-
-
-            BufferedImage smallIluminated = imageProcessingService.scale(iluminatedImage, 4);
-            BufferedImage smallWireFrame = generateWireFrameImage(contour, true);
-            BufferedImage smallSkin = generateSkinImage(true, iluminatedImage);
-            BufferedImage smallFD = generateFdPlot(true, FD);
+//TODO: implement debug mode switch
+//        if (debugMode) {
+        // TODO: invoke first scale, then illuminate, then everything else
+        BufferedImage illuminatedImage = imageProcessingService.illuminate(crtFrame, luminosity);
+        BufferedImage smallIlluminated = imageProcessingService.scale(illuminatedImage, 4);
+        BufferedImage smallWireFrame = generateWireFrameImage(illuminatedImage, true);
+        BufferedImage smallSkin = generateSkinImage(true, illuminatedImage);
+        BufferedImage smallFD = generateFdPlot(true, FD);
 
 //            switch (viewType) {
 //                case Constants.NORMAL_VIEW: {
@@ -98,10 +88,11 @@ public class ImageProcessor {
 //
 //            mainWindow.renderFrame(imageToDisplay);
 
-            mainWindow.renderFD(smallFD);
-            mainWindow.renderSkin(smallSkin);
-            mainWindow.renderWire(smallWireFrame);
-            mainWindow.renderSmallIluminated(smallIluminated);
+        mainWindow.renderFD(smallFD);
+        mainWindow.renderSkin(smallSkin);
+        mainWindow.renderWire(smallWireFrame);
+        mainWindow.renderSmallIluminated(smallIlluminated);
+//        }
     }
 
     private int getIndexOfMaxElement(double[] output) {
@@ -114,7 +105,9 @@ public class ImageProcessor {
         return maxIndex;
     }
 
-    private BufferedImage generateWireFrameImage(Point[] contour, boolean small) {
+    private BufferedImage generateWireFrameImage(BufferedImage image, boolean small) {
+
+        Point[] contour = imageProcessingService.extractContour(image, useSkinDetection, threshold, luminosity);
 
         int scale = 1;
         int w = 160;
@@ -146,7 +139,7 @@ public class ImageProcessor {
     private BufferedImage generateSkinImage(boolean small, BufferedImage originalImage) {
         BufferedImage skin;
         if (useSkinDetection) {
-            skin = imageProcessingService.convertToBinaryUsingSkin(originalImage);
+            skin = imageProcessingService.toBinaryUsingSkin(originalImage);
         } else {
             skin = imageProcessingService.toBinaryImageUsingLuminosityThreshold(originalImage, threshold);
         }

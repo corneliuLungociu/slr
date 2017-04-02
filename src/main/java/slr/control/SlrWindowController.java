@@ -1,12 +1,11 @@
 package slr.control;
 
 import com.github.sarxos.webcam.Webcam;
-import org.apache.commons.math3.complex.Complex;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import slr.services.ImageProcessingService;
 import slr.services.PredictionService;
-import slr.utils.MathUtils;
+import slr.utils.Constants;
 
 import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
@@ -14,9 +13,13 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author corneliu
@@ -50,7 +53,6 @@ public class SlrWindowController {
         //saveNeuralNetwork();
     }
 
-    //------------------------------    WEB CAM CONTROL     ------------------------
     public Set<String> getAvailableWebCams() {
         return availableWebCams.keySet();
     }
@@ -92,27 +94,23 @@ public class SlrWindowController {
         return loadedImage;
     }
 
-    public double[] recognizeSingleImage(BufferedImage loadedImage, boolean useSkinDetection, int luminosityThreshold) {
+    public double[] recognizeSingleImage(BufferedImage loadedImage, boolean useSkinDetection, int luminosityThreshold, double luminosity) {
 
-        BufferedImage preparedImage = imageProcessingService.preProcessImage(loadedImage, useSkinDetection, luminosityThreshold);
-        Point[] contour = imageProcessingService.getContourOfLargestShape(preparedImage);
-        contour = imageProcessingService.reduceDataSize(contour);
-        double[] shapeDescription = MathUtils.computeCentroidDistance(contour);
-
-        if (shapeDescription.length != 32) {
+        double[] FD = imageProcessingService.extractFeatures(useSkinDetection, luminosityThreshold, loadedImage, luminosity);
+        if (FD == null) {
             return null;
         }
 
-        Complex[] FT = MathUtils.computeFourierTransforms(shapeDescription);
-        FT = MathUtils.normalizeFourierTransforms(FT);
-        double[] FD = MathUtils.computeFourierDescriptors(FT);
         double[] prediction = predictionService.predict(FD);
 
-        drawContourOnImage(loadedImage, contour);
+
+        drawContourOnImage(loadedImage, useSkinDetection, luminosityThreshold, luminosity);
         return prediction;
     }
 
-    private void drawContourOnImage(BufferedImage loadedImage, Point[] contour) {
+    private void drawContourOnImage(BufferedImage loadedImage, boolean useSkinDetection, int luminosityThreshold, double luminosity) {
+        Point[] contour  = imageProcessingService.extractContour(loadedImage, useSkinDetection, luminosityThreshold, luminosity);
+
         Graphics2D imageWithContour = loadedImage.createGraphics();
         if (contour != null && contour.length > 2) {
             for (int i = 0; i < contour.length - 1; i++) {
@@ -184,5 +182,27 @@ public class SlrWindowController {
 
     public void computePrediction(boolean recognize) {
         imageProcessor.setComputePrediction(recognize);
+    }
+
+    public void collectTrainingExample(String selectedWebCam, String letter, String location, int trainingExampleCounter, boolean useSkinDetection, int luminosityThreshold, double luminosity) throws IOException {
+        Webcam webcam = availableWebCams.get(selectedWebCam);
+        if (webcam == null) {
+            throw new IllegalArgumentException("Unknown webcam: " + selectedWebCam);
+        }
+
+        BufferedImage image = webcam.getImage();
+        double[] FD = imageProcessingService.extractFeatures(useSkinDetection, luminosityThreshold, image, luminosity);
+
+        if (FD == null) {
+            return;
+        }
+
+        int label = Constants.ALPHABET.indexOf(letter);
+        String line = Arrays.stream(FD).mapToObj(value -> "" + value).collect(Collectors.joining(",")) + "," + label;
+
+        Path tsLocation = Paths.get(location, letter + ".csv");
+        Path teLocation = Paths.get(location, letter + "-" + trainingExampleCounter + ".jpg");
+        Files.write(tsLocation, Collections.singletonList(line), StandardCharsets.UTF_8, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+        ImageIO.write(image, "jpeg", teLocation.toFile());
     }
 }
