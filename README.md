@@ -3,7 +3,6 @@ Sign Language Recognition app
 
 TODO:
 
-
 - implement "train model" workflow
     - separate application to train and run experiments with various configurations.
     - Maybe extract a distinct "prediction" maven module, and make the main app, and the training app depend on it;
@@ -28,3 +27,5 @@ TODO:
 
 - investigate why on stop camera, sometimes we get a NPE. (most likely a thread synchronization issue)
 - check imageProcessingService.preProcessImage performance
+
+- implement proper vesioning
